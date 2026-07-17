@@ -26,6 +26,8 @@ export interface TweaksPanelCallbacks {
 	onReset(name: string): void;
 	onResetAll(): void;
 	onRescan(): void;
+	/** Save (T10): export the session's diff and attempt the clipboard copy. */
+	onSave(): void;
 }
 
 export interface TweaksPanel {
@@ -188,6 +190,7 @@ export function createTweaksPanel(
 		pane = new Pane({ container: paneMount });
 		cloneTweakpaneStyles(shadowRoot);
 
+		pane.addButton({ title: "Save" }).on("click", () => callbacks.onSave());
 		pane.addButton({ title: "Rescan" }).on("click", () => callbacks.onRescan());
 		pane
 			.addButton({ title: "Reset all" })

@@ -20,6 +20,7 @@
 
 import { applyOverride, applyReset, applyResetAll } from "./apply";
 import type { TokenKind } from "./classify";
+import { saveAndExport } from "./export";
 import { createPanelHost, type PanelHost } from "./panel/host";
 import {
 	createTweaksPanel,
@@ -236,6 +237,14 @@ export function init(
 		},
 		onRescan() {
 			rescan();
+		},
+		onSave() {
+			// `navigator.clipboard` may be absent (older browser, insecure
+			// context) — export.ts's saveAndExport() treats that identically to a
+			// rejected write (T10) and shows the fallback modal either way.
+			const clipboard =
+				typeof navigator !== "undefined" ? navigator.clipboard : undefined;
+			void saveAndExport(doc, current.session, clipboard);
 		},
 	});
 

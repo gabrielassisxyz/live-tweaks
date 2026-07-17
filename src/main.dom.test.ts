@@ -85,6 +85,7 @@ function fakePanelFactory(): FakePanel {
 
 afterEach(() => {
 	document.head.innerHTML = "";
+	document.body.innerHTML = ""; // onSave's fallback modal (export.ts) mounts here
 	document.documentElement.removeAttribute("style");
 });
 
@@ -273,4 +274,29 @@ it("a live override survives into a later render's token value", () => {
 		(t) => t.name === "--spacing-lg",
 	);
 	expect(rescannedToken?.value).toBe("32px");
+});
+
+it("onSave falls back to the copy-paste modal when navigator.clipboard is absent (T10)", async () => {
+	// jsdom exposes `navigator` but not the Clipboard API (confirmed by hand,
+	// same documented gap as classify.ts's CSS.supports seam) — exactly the
+	// "API absent" branch export.ts's saveAndExport() must fall back on.
+	expect(navigator.clipboard).toBeUndefined();
+
+	mountStyle(":root { --spacing-lg: 24px; }");
+	const fake = fakePanelFactory();
+	init(document, freshWindow(), fake.factory);
+	fake.callbacks?.onChange("--spacing-lg", "32px");
+
+	fake.callbacks?.onSave();
+	// saveAndExport() is async (awaits the clipboard write attempt); flush
+	// the microtask queue before asserting the modal landed.
+	await Promise.resolve();
+	await Promise.resolve();
+
+	const modal = document.getElementById("live-tweaks-export-fallback");
+	expect(modal).not.toBeNull();
+	const exported = JSON.parse(modal?.querySelector("textarea")?.value ?? "{}");
+	expect(exported).toEqual({
+		"--spacing-lg": { before: "24px", after: "32px" },
+	});
 });
