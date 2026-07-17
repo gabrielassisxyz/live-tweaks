@@ -4,13 +4,47 @@
 > AGENTS.md. Pull top-down within a track. After P1, **Track A** (P2–P4) and
 > **Track B** (P5) are independent — they share only PLAN §4 + D3/D10, all pinned.
 >
-> **Process**: one branch per track (`feature/panel`, `feature/tweaks-skill`);
-> AGENTS.md's review gate (one independent review of the whole branch diff) applies
-> per branch, pre-push. Done = checked here + `bin/ci` green + the task's verify
-> step shown + AGENTS.md post-implementation checklist.
+> **Process (orchestrated drain)**: one orchestrator session owns this queue. Per
+> wave (table below) it spawns one agent per task — each in its own worktree +
+> branch off current `master` — then reviews each task branch and merges it,
+> resolving conflicts. The orchestrator's pre-merge review satisfies AGENTS.md's
+> review gate. Done = checked here + `bin/ci` green + the task's verify step
+> shown + AGENTS.md post-implementation checklist.
 >
 > **HUMAN CHECKPOINT** = the verify is visual/interactive: stop and ask Gabriel to
-> confirm; never self-declare a pass.
+> confirm; never self-declare a pass. A wave containing one does not close without
+> him.
+
+## Dependency tree
+
+```
+T1 ──→ T2 ──┐
+  └──→ T3 ──┴→ T4 ──→ T5 ──┐
+T6 ──────────────────→ ↑   ├→ T8 ──→ T9 ──→ T10 ──┐
+  └──→ T7 ─────────────────┘                      ├→ T15 ──→ T16 ──┐
+T11 ──→ T12                                       │                ├→ T17
+   └──→ T13 ──→ T14 ──────────────────────────────┘────────────────┘
+```
+
+Edge list (authoritative; the drawing is a convenience):
+`T1→{T2,T3}` · `{T2,T3}→T4` · `{T4,T6}→T5` · `T6→T7` · `{T5,T7}→T8` ·
+`T8→T9→T10` · `T11→{T12,T13}` · `T13→T14` · `{T10,T13}→T15` · `T15→T16` ·
+`{T14,T16}→T17`.
+
+## Execution waves
+
+| Wave | Tasks (parallel) | Notes for the orchestrator |
+|---|---|---|
+| 1 | **T1 · T6 · T11** | 3 agents, fully disjoint files. |
+| 2 | **T2 · T3 · T7 · (T12+T13)** | T12+T13 go to ONE agent — both edit `skills/tweaks/SKILL.md` (guaranteed conflict if split). T2 and T7 may both append to AGENTS.md (probe/spike outcomes) — trivial append conflict, resolve by keeping both lines. T2/T3 share test fixtures: keep fixtures per-module to stay disjoint. |
+| 3 | **T4 · T14** | |
+| 4–7 | **T5 → T8 → T9 → T10** | Serial chain (Track A tail) — hand it to a single agent as one branch rather than 4 spawns. T9 ends in a HUMAN CHECKPOINT. |
+| 8 | **T15** | HUMAN CHECKPOINT (kernl e2e). |
+| 9 | **T16** | HUMAN CHECKPOINT (demo e2e). |
+| 10 | **T17** | Release — the first `npm publish` is manual (2FA), Gabriel runs it. |
+
+Max useful parallelism is wave 2 (4 agents); after wave 3 the graph is a chain —
+don't spawn a fleet for it.
 
 ## P1 — extraction core
 
