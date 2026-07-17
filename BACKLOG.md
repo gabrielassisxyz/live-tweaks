@@ -112,11 +112,11 @@ don't spawn a fleet for it.
       (PLAN D10); end printing injection instructions (script tag + dev-gated
       `import('live-tweaks')`). Verify: run against `demo/` finds the fixture
       tokens, writes correct `design.md`. *(depends: —)*
-- [ ] **T12** *setup*, no-vars path: detect hardcoded values, explain the
+- [x] **T12** *setup*, no-vars path: detect hardcoded values, explain the
       constraint, offer interactive refactor-to-vars (file-by-file, small diffs).
       Verify: run against a hardcoded-colors fixture page produces the
       explanation + a concrete refactor offer. *(depends: T11)*
-- [ ] **T13** *implement* mode: parse diff JSON, locate definitions, apply PLAN D3
+- [x] **T13** *implement* mode: parse diff JSON, locate definitions, apply PLAN D3
       anchor rule (ambiguous → stop and ask), edit files, show diff summary.
       Verify: hand-written diff JSON applied to the demo fixture edits the right
       definitions, incl. the `[data-theme]` anchor case and a stop-and-ask case.
