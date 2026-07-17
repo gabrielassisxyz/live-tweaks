@@ -1,0 +1,31 @@
+{
+	"name": "live-tweaks",
+	"version": "0.0.0",
+	"description": "Live design-tweaks panel for your own running app: edit CSS design tokens in a floating panel, watch the UI update live, round-trip the changes back to source.",
+	"type": "module",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/gabrielassisxyz/live-tweaks.git"
+	},
+	"files": [
+		"dist"
+	],
+	"main": "./dist/live-tweaks.js",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"test": "vitest run",
+		"lint": "biome check .",
+		"format": "biome format --write ."
+	},
+	"engines": {
+		"node": ">=24"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.5.4",
+		"typescript": "^7.0.2",
+		"vite": "^8.1.5",
+		"vitest": "^4.1.10"
+	}
+}

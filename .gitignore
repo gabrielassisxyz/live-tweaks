@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.env
+!*.env.example
+
+# Local agent-layer config (machine-specific paths; recreate per machine)
+.ai-jail
