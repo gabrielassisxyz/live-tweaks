@@ -67,7 +67,7 @@ don't spawn a fleet for it.
 - [x] **T3** `src/classify.ts` — color / font-family / length / other per PLAN D5
       (trimmed input; font requires name match; `calc()`/unitless excluded →
       other). Table-driven tests. *(depends: T1)*
-- [ ] **T4** `src/state.ts` — baseline (raw+resolved per token), pre-existing
+- [x] **T4** `src/state.ts` — baseline (raw+resolved per token), pre-existing
       inline snapshot (PLAN D12), overrides, `diff()` in contract format,
       `reset(name)`/`resetAll()` restoring snapshot values. TDD. *(depends: T2, T3)*
 
