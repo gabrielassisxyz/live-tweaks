@@ -1,1 +1,311 @@
+// src/main.ts — entry point (PLAN §2).
+//
+// Orchestrates extract → classify → session → panel mount and exposes
+// `window.LiveTweaks.{dump, rescan}`.
+//
+// D13's noise denylist, the panel-visibility filter, and the edit/reset
+// wiring (T9) are ordinary decision logic with no Tweakpane coupling, so they
+// live here — and stay TDD, unlike `panel/` (recorded exemption, AGENTS.md).
+// The panel itself is created through an injectable `PanelFactory` (defaults
+// to the real `createPanelHost`/`createTweaksPanel`) precisely so this
+// module's own DOM tests (main.dom.test.ts) can exercise the wiring against
+// a fake panel under jsdom, which cannot run a real Tweakpane instance.
+//
+// `scan()` reuses resolve.ts/state.ts's individual pieces (`resolveDocumentTokens`,
+// `buildBaseline`, `snapshotInlineCustomProperties`, `TweakSession`) instead of
+// `state.ts`'s `createTweakSession()` convenience wire, because it also needs
+// `ResolveResult.unreadableSheets` for the dump/skip counters (PLAN D2), which
+// `createTweakSession()` does not surface. That is the only reason this module
+// does not just call `createTweakSession()` directly.
+
+import { applyOverride, applyReset, applyResetAll } from "./apply";
+import type { TokenKind } from "./classify";
+import { saveAndExport } from "./export";
+import { createPanelHost, type PanelHost } from "./panel/host";
+import {
+	createTweaksPanel,
+	type PanelToken,
+	type TweaksPanel,
+	type TweaksPanelCallbacks,
+} from "./panel/panel";
+import { resolveDocumentTokens } from "./resolve";
+import type { BaselineToken } from "./state";
+import {
+	buildBaseline,
+	snapshotInlineCustomProperties,
+	TweakSession,
+} from "./state";
+
 export const LIVE_TWEAKS_VERSION = "0.0.0";
+
+// D13: known framework-internal root-token prefixes — noise, not design
+// tokens, filtered from the panel regardless of how they classify.
+const NOISE_PREFIXES = ["--tw-", "--un-"];
+
+/** D13: true when a token name is known framework-internal noise. */
+export function isNoiseToken(name: string): boolean {
+	return NOISE_PREFIXES.some((prefix) => name.startsWith(prefix));
+}
+
+/** Tokens worth a control: editable (D3), classified (D5), not noise (D13). */
+export function panelTokens(tokens: readonly BaselineToken[]): BaselineToken[] {
+	return tokens.filter(
+		(token) =>
+			token.editable && token.kind !== "other" && !isNoiseToken(token.name),
+	);
+}
+
+export interface DumpToken {
+	readonly name: string;
+	readonly kind: TokenKind;
+}
+
+export interface DumpSkipped {
+	/** Tokens with no root-level definition (PLAN D3) — component-scoped noise. */
+	readonly nonRoot: number;
+	/** Root tokens matching the D13 denylist (`--tw-`, `--un-`). */
+	readonly noise: number;
+	/** Root, non-noise tokens that classify as `other` (PLAN D5). */
+	readonly unclassified: number;
+	/** Cross-origin stylesheets the walk could not read (PLAN D2). */
+	readonly unreadableSheets: number;
+}
+
+export interface DumpResult {
+	/** Every root-level token, with its classified kind — includes noise and
+	 * unclassified entries (this is the debug view; `panelTokens()` is the
+	 * narrower list the panel actually renders). */
+	readonly tokens: DumpToken[];
+	readonly skipped: DumpSkipped;
+}
+
+/** Pure summary behind `dump()`/`rescan()` (D2, D3, D5, D13 counters). */
+export function buildDumpResult(
+	tokens: readonly BaselineToken[],
+	unreadableSheets: number,
+): DumpResult {
+	const rootTokens = tokens.filter((token) => token.editable);
+	return {
+		tokens: rootTokens.map((token) => ({ name: token.name, kind: token.kind })),
+		skipped: {
+			nonRoot: tokens.length - rootTokens.length,
+			noise: rootTokens.filter((token) => isNoiseToken(token.name)).length,
+			unclassified: rootTokens.filter(
+				(token) => token.kind === "other" && !isNoiseToken(token.name),
+			).length,
+			unreadableSheets,
+		},
+	};
+}
+
+/** Pure text behind both the console log and the panel's skip-counter line —
+ * one source of truth for the D3/D5/D13 summary wording. */
+export function formatSkipped(skipped: DumpSkipped): string {
+	const parts = [
+		`${skipped.nonRoot} non-root`,
+		`${skipped.unclassified} unclassified`,
+		`${skipped.noise} noise`,
+	];
+	if (skipped.unreadableSheets > 0) {
+		parts.push(`${skipped.unreadableSheets} unreadable sheets`);
+	}
+	return `${parts.join(", ")} vars skipped`;
+}
+
+function logSkipped(skipped: DumpSkipped): void {
+	console.log(`live-tweaks: ${formatSkipped(skipped)}`);
+}
+
+/** A token converted for the panel's consumption. Throws only if a caller
+ * ever passes an unclassified token — unreachable in practice since
+ * `panelTokens()` already excludes `kind === "other"`; the guard exists so
+ * this stays a real narrowing function instead of an unchecked cast. */
+function toPanelToken(token: BaselineToken, value: string): PanelToken {
+	if (token.kind === "other") {
+		throw new Error(
+			`live-tweaks: unexpected unclassified token reached the panel: ${token.name}`,
+		);
+	}
+	return { name: token.name, kind: token.kind, value };
+}
+
+/** The panel's current token list: `panelTokens()`'s filter (D3/D5/D13),
+ * each with its *live* value (a user override if one exists, else the
+ * baseline's resolved value) — so a rescan or a fresh mount always shows
+ * what's actually applied to the page, not just the baseline. */
+function buildPanelTokens(session: TweakSession): PanelToken[] {
+	return panelTokens(session.tokens()).map((token) =>
+		toPanelToken(token, session.currentValue(token.name) ?? token.activeValue),
+	);
+}
+
+/** Creates the panel host + implementation. Defaults to the real Tweakpane
+ * wiring (`panel/host.ts` + `panel/panel.ts`); overridable so tests can
+ * supply a fake and exercise `init()`'s wiring without a real Tweakpane
+ * instance under jsdom (PLAN §2's panel/ TDD exemption applies to Tweakpane
+ * itself, not to the plain glue code in this file). */
+export interface PanelFactory {
+	createHost(doc: Document): PanelHost;
+	createPanel(
+		contentMount: HTMLElement,
+		shadowRoot: ShadowRoot,
+		callbacks: TweaksPanelCallbacks,
+	): TweaksPanel;
+}
+
+const defaultPanelFactory: PanelFactory = {
+	createHost: createPanelHost,
+	createPanel: createTweaksPanel,
+};
+
+export interface LiveTweaksApi {
+	dump(): DumpResult;
+	rescan(): DumpResult;
+}
+
+/** The subset of `Window` main.ts touches — a plain object satisfies this in
+ * tests, a real `Window` satisfies it in production, no cast either way. */
+export interface LiveTweaksWindow {
+	LiveTweaks?: LiveTweaksApi;
+}
+
+interface Scan {
+	readonly session: TweakSession;
+	readonly dump: DumpResult;
+}
+
+/** Walks the document, builds a fresh session, and computes the dump summary
+ * (D2/D3/D5 counters) in one pass — see the file header for why this doesn't
+ * just call `createTweakSession()`. */
+function scan(doc: Document): Scan {
+	const resolved = resolveDocumentTokens(doc);
+	const baseline = buildBaseline(resolved.tokens);
+	const snapshot = snapshotInlineCustomProperties(doc.documentElement.style);
+	const session = new TweakSession(baseline, snapshot);
+	return {
+		session,
+		dump: buildDumpResult(baseline, resolved.unreadableSheets),
+	};
+}
+
+/**
+ * Builds (or reuses) the live-tweaks session for `doc`, mounts the panel, and
+ * exposes `win.LiveTweaks`. Idempotency guard: a second call on the same
+ * `win` is a no-op and returns the existing api — double injection must
+ * never scan twice, mount a second panel, or double-apply overrides.
+ *
+ * Edit wiring (T9, PLAN D12): a control change records the override in
+ * `TweakSession` and applies it to the DOM in the same step (`apply.ts` is
+ * the only thing that ever touches `documentElement.style`); a per-var reset
+ * or reset-all asks the session what that means (restore the pre-existing
+ * inline snapshot, or remove the property), executes it, and pushes the
+ * restored value back into the panel's control via `setValue()` — a reset
+ * can be triggered without the user touching the control itself, so the
+ * displayed value must be told to catch up.
+ */
+export function init(
+	doc: Document = document,
+	win: LiveTweaksWindow = window as unknown as LiveTweaksWindow,
+	panelFactory: PanelFactory = defaultPanelFactory,
+): LiveTweaksApi {
+	if (win.LiveTweaks) return win.LiveTweaks;
+
+	let current = scan(doc);
+	logSkipped(current.dump.skipped);
+
+	const host = panelFactory.createHost(doc);
+	const panel = panelFactory.createPanel(host.contentMount, host.shadowRoot, {
+		onChange(name, value) {
+			current.session.setOverride(name, value);
+			applyOverride(doc.documentElement.style, name, value);
+		},
+		onReset(name) {
+			const instruction = current.session.reset(name);
+			if (!instruction) return; // nothing to undo (D12)
+			applyReset(doc.documentElement.style, instruction);
+			panel.setValue(name, current.session.currentValue(name) ?? "");
+		},
+		onResetAll() {
+			const instructions = current.session.resetAll();
+			applyResetAll(doc.documentElement.style, instructions);
+			for (const instruction of instructions) {
+				panel.setValue(
+					instruction.name,
+					current.session.currentValue(instruction.name) ?? "",
+				);
+			}
+		},
+		onRescan() {
+			rescan();
+		},
+		onSave() {
+			// `navigator.clipboard` may be absent (older browser, insecure
+			// context) — export.ts's saveAndExport() treats that identically to a
+			// rejected write (T10) and shows the fallback modal either way.
+			const clipboard =
+				typeof navigator !== "undefined" ? navigator.clipboard : undefined;
+			void saveAndExport(doc, current.session, clipboard);
+		},
+	});
+
+	function renderPanel(): void {
+		panel.render(
+			buildPanelTokens(current.session),
+			formatSkipped(current.dump.skipped),
+		);
+	}
+
+	/**
+	 * Rescan (PLAN T8) exists to pick up tokens from lazily-injected
+	 * stylesheets — it must never cost the user their in-flight session
+	 * (review-gate fix on T9). A fresh `scan(doc)` re-walks a DOM that may
+	 * already carry the user's own inline overrides, so it cannot simply
+	 * replace `current.session`: its snapshot would wrongly capture those
+	 * overrides as pre-existing (D12 corrupted), its baseline's `before`
+	 * would anchor on the edited value (§4 corrupted), and every live
+	 * override would vanish (`diff()` empty — breaks SCOPE check #3, Save).
+	 * Instead, merge: keep the original session (baseline, snapshot,
+	 * overrides all untouched for known tokens) and only add entries for
+	 * tokens the fresh scan found that it didn't already know. The fresh
+	 * scan's dump counters are used as-is — they describe the page as it is
+	 * now, which is exactly what they're for.
+	 */
+	function rescan(): DumpResult {
+		const fresh = scan(doc);
+		current.session.mergeNewTokens(fresh.session);
+		current = { session: current.session, dump: fresh.dump };
+		logSkipped(current.dump.skipped);
+		renderPanel();
+		return current.dump;
+	}
+
+	renderPanel();
+
+	const api: LiveTweaksApi = { dump: () => current.dump, rescan };
+	win.LiveTweaks = api;
+	return api;
+}
+
+// Auto-mount on script load (PLAN §2) — the IIFE build's whole point: dropping
+// <script src="live-tweaks.js"> into a page must "just work" with no
+// caller-side init call. Guarded out under Vitest so unit tests can import
+// this module and call `init()` themselves against a document/window they
+// control, without a real-DOM side effect racing ahead of them (Vitest
+// imports a test file's modules once, not once per test, so an unconditional
+// top-level `init()` would run against whatever the very first test's
+// document looked like and then idempotency-guard every later test out).
+// Vitest sets `process.env.VITEST` — read via a loose structural cast so this
+// file needs no `@types/node` dependency for one boolean check.
+const runningUnderVitest =
+	(globalThis as { process?: { env?: Record<string, string | undefined> } })
+		.process?.env?.VITEST === "true";
+
+if (!runningUnderVitest && typeof document !== "undefined") {
+	if (document.readyState === "loading") {
+		document.addEventListener("DOMContentLoaded", () => init(), {
+			once: true,
+		});
+	} else {
+		init();
+	}
+}

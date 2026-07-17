@@ -269,3 +269,103 @@ describe("TweakSession — resetAll() (PLAN D12)", () => {
 		expect(session.resetAll()).toEqual([]);
 	});
 });
+
+describe("TweakSession — mergeNewTokens() (rescan review-gate fix)", () => {
+	it("adds tokens the session didn't know about, from the other session's baseline", () => {
+		const session = new TweakSession([baselineToken({ name: "--a" })]);
+		const fresh = new TweakSession([
+			baselineToken({ name: "--a" }),
+			baselineToken({ name: "--b", before: "#222222", activeValue: "#222222" }),
+		]);
+
+		session.mergeNewTokens(fresh);
+
+		expect(session.tokens().map((t) => t.name)).toEqual(["--a", "--b"]);
+		expect(session.currentValue("--b")).toBe("#222222");
+	});
+
+	it("leaves an already-known token's baseline completely untouched", () => {
+		const session = new TweakSession([
+			baselineToken({ name: "--a", before: "#8839ef", activeValue: "#8839ef" }),
+		]);
+		// A fresh scan of a DOM the user has since edited would see --a's
+		// *edited* value as both the new activeValue and (wrongly) the new
+		// before anchor — merging must never let that leak into the session.
+		const fresh = new TweakSession([
+			baselineToken({ name: "--a", before: "#e07850", activeValue: "#e07850" }),
+		]);
+
+		session.mergeNewTokens(fresh);
+
+		const merged = session.tokens().find((t) => t.name === "--a");
+		expect(merged?.before).toBe("#8839ef");
+		expect(merged?.activeValue).toBe("#8839ef");
+	});
+
+	it("does not overwrite an already-known token's snapshot value", () => {
+		const session = new TweakSession(
+			[baselineToken({ name: "--a" })],
+			new Map([["--a", "#000000"]]), // the true pre-session inline value
+		);
+		session.setOverride("--a", "#e07850");
+		// The fresh scan's snapshot sees the user's own inline override and
+		// would (wrongly) treat it as "pre-existing" if it won.
+		const fresh = new TweakSession(
+			[baselineToken({ name: "--a" })],
+			new Map([["--a", "#e07850"]]),
+		);
+
+		session.mergeNewTokens(fresh);
+
+		expect(session.reset("--a")).toEqual({
+			name: "--a",
+			action: "restore",
+			value: "#000000",
+		});
+	});
+
+	it("does not overwrite an already-known token's live override — diff() keeps exporting it", () => {
+		const session = new TweakSession([
+			baselineToken({ name: "--a", before: "#8839ef" }),
+		]);
+		session.setOverride("--a", "#e07850");
+		const fresh = new TweakSession([
+			baselineToken({ name: "--a", before: "#e07850", activeValue: "#e07850" }),
+		]);
+
+		session.mergeNewTokens(fresh);
+
+		expect(session.diff()).toEqual({
+			"--a": { before: "#8839ef", after: "#e07850" },
+		});
+	});
+
+	it("uses the new token's own snapshot value for reset (it really is new)", () => {
+		const session = new TweakSession([baselineToken({ name: "--a" })]);
+		const fresh = new TweakSession(
+			[baselineToken({ name: "--b" })],
+			new Map([["--b", "#333333"]]),
+		);
+
+		session.mergeNewTokens(fresh);
+		session.setOverride("--b", "#444444");
+
+		expect(session.reset("--b")).toEqual({
+			name: "--b",
+			action: "restore",
+			value: "#333333",
+		});
+	});
+
+	it("leaves a token that vanished from the fresh scan in place (harmless)", () => {
+		const session = new TweakSession([
+			baselineToken({ name: "--a" }),
+			baselineToken({ name: "--b" }),
+		]);
+		const fresh = new TweakSession([baselineToken({ name: "--a" })]); // --b is gone
+
+		session.mergeNewTokens(fresh);
+
+		expect(session.tokens().map((t) => t.name)).toEqual(["--a", "--b"]);
+	});
+});

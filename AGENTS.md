@@ -111,3 +111,15 @@
   (`style[data-tp-style]`), which is version-robust. (2) The button that opens the picker is
   `.tp-colswv_b` (`.tp-colv_t` is the adjacent hex text field). No `composedPath` retargeting
   breakage observed in 4.0.5.
+- **T5 vite iife global-name trap (2026-07-17)**: `vite.config.ts`'s `lib.name` for the
+  `iife` format must NOT be `"LiveTweaks"`. The iife wrapper's global binding
+  (`var <name> = (function(){...})()`) assigns `window.<name>` *after* the module body
+  finishes running — so naming it `"LiveTweaks"` silently overwrote `window.LiveTweaks`
+  (already set correctly, mid-module, by `main.ts`'s own `init()`) with the raw
+  module-exports object once the IIFE returned, clobbering `.dump`/`.rescan` with the wrong
+  shape. Caught only by driving the *built* `dist/live-tweaks.js` in a real browser — the
+  bug was invisible from `vitest` (which runs the TS source, never the iife bundle) and
+  from `tsc` (no type distinguishes the two assignments). `lib.name` is now the internal,
+  never-referenced `"__liveTweaksModule"`; `init()`'s own assignment is the only thing
+  that may own `window.LiveTweaks`. Lesson: any change to `vite.config.ts`'s `lib.name`
+  needs a real-browser check of the actual built artifact, not just `npm test`.

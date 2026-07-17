@@ -48,5 +48,11 @@
 					.trim()
 					.replace(/^"|"$/g, "");
 		</script>
+
+		<!-- Dev-only injection snippet (SCOPE.md, README "Inject"), pointed at
+		     the built IIFE so this fixture works after `npm run build` without a
+		     bundler. Serve the repo root (not just demo/) so this absolute path
+		     resolves, e.g. `npx serve .` then open /demo/index.html. -->
+		<script src="/dist/live-tweaks.js"></script>
 	</body>
 </html>

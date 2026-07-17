@@ -12,6 +12,13 @@
 		"dist"
 	],
 	"main": "./dist/live-tweaks.js",
+	"module": "./dist/live-tweaks.es.js",
+	"exports": {
+		".": {
+			"import": "./dist/live-tweaks.es.js",
+			"default": "./dist/live-tweaks.js"
+		}
+	},
 	"scripts": {
 		"dev": "vite",
 		"build": "vite build",
