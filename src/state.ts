@@ -100,11 +100,15 @@ export function snapshotInlineCustomProperties(
 
 /**
  * A single edit session: baseline + pre-existing snapshot are fixed at
- * construction; `overrides` is the only mutable state, keyed by token name.
+ * construction for every token known at that point; `overrides` is the only
+ * *editing* state, keyed by token name. `mergeNewTokens()` is the one
+ * exception — it can grow the baseline/snapshot with entries for
+ * newly-discovered tokens on a rescan, but never touches an entry that was
+ * already there (see that method's doc for why).
  */
 export class TweakSession {
-	private readonly baseline: ReadonlyMap<string, BaselineToken>;
-	private readonly snapshot: ReadonlyMap<string, string>;
+	private readonly baseline: Map<string, BaselineToken>;
+	private readonly snapshot: Map<string, string>;
 	private readonly overrides = new Map<string, string>();
 
 	constructor(
@@ -112,7 +116,7 @@ export class TweakSession {
 		snapshot: ReadonlyMap<string, string> = new Map(),
 	) {
 		this.baseline = new Map(baseline.map((token) => [token.name, token]));
-		this.snapshot = snapshot;
+		this.snapshot = new Map(snapshot);
 	}
 
 	/** All known tokens (editable and not), in baseline order — for the panel to filter. */
@@ -172,6 +176,35 @@ export class TweakSession {
 			diff[name] = { before: this.baseline.get(name)?.before ?? "", after };
 		}
 		return diff;
+	}
+
+	/**
+	 * Rescan support (review-gate fix on T9): adds baseline entries — with
+	 * their snapshot values — for tokens `other` knows that this session
+	 * doesn't yet. A token this session already knows is left **completely
+	 * untouched**: its baseline entry (so `before`/`activeValue`/`kind` stay
+	 * pinned to session start, never to a later scan of a DOM the user has
+	 * since edited), its snapshot value (so D12 reset still restores the
+	 * *true* pre-session state, not whatever a fresh scan would wrongly
+	 * capture as "pre-existing" — the user's own inline override), and any
+	 * live override (so `diff()` keeps exporting it, PLAN §4/SCOPE check #3).
+	 *
+	 * `other` is meant to be a session built from a fresh `scan()` purely for
+	 * token *discovery* (PLAN T8: Rescan exists to pick up tokens injected by
+	 * lazily-loaded stylesheets) — it is discarded after this call, its dump
+	 * counters used separately by the caller. A token this session used to
+	 * know but that vanished from `other` is simply left in place; a stale
+	 * control is harmless, silently losing the user's edit to it is not.
+	 */
+	mergeNewTokens(other: TweakSession): void {
+		for (const [name, token] of other.baseline) {
+			if (this.baseline.has(name)) continue;
+			this.baseline.set(name, token);
+			const snapshotValue = other.snapshot.get(name);
+			if (snapshotValue !== undefined) {
+				this.snapshot.set(name, snapshotValue);
+			}
+		}
 	}
 }
 
