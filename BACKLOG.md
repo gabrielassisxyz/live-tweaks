@@ -83,7 +83,7 @@ don't spawn a fleet for it.
       PLAN D7: tokens inside `@layer`, an `@media` override, an `@import`ed sheet,
       a component-scoped var, `--tw-*` noise, a `var()` reference, a
       semicolon-in-string value, a `[data-theme]` dark block. *(depends: —)*
-- [ ] **T7** **SPIKE/GATE (~2h box)** — Tweakpane 4.0.5 in Shadow DOM on the demo
+- [x] **T7** **SPIKE/GATE (~2h box)** — Tweakpane 4.0.5 in Shadow DOM on the demo
       page: mount, style-clone workaround (issue #535), color-picker popup
       click-drag stays open, keyboard focus works (PLAN D1). Record outcome in
       AGENTS.md; on fail, `panel.ts` impl = native inputs behind the same
