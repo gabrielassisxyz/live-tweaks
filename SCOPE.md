@@ -53,6 +53,16 @@ source round-trip).
   (`el.outerHTML`), but manual DOM surgery is clobbered by the next re-render/HMR, and
   writing it back needs DOM→source mapping — layer-2 machinery, not CSS-var machinery.
 
+## Later (unscheduled sparks)
+
+- **Bookmarklet as an emergency injection mode** — the same single-file IIFE wrapped in
+  `javascript:(...)()` as a browser bookmark. Unlocks a case the dev-snippet can't touch:
+  running the panel on **pages you don't own** (any third-party site — e.g. prototype a
+  re-theme of someone else's UI, limited to whatever CSS vars it exposes). Inherently
+  manual (re-click on every page load) — acceptable in an emergency mode, and exactly why
+  it was rejected as the *primary* mode. Near-zero build cost: same artifact, different
+  wrapper. No source round-trip, obviously — preview only.
+
 ## Layer 2 (gated — not scheduled)
 
 Ask an LLM for **layout/structure** changes directly on the page (point-and-iterate
