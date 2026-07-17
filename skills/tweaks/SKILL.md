@@ -94,12 +94,18 @@ component-scoped blocks. This keeps the scan framework-agnostic.
 Within each file, find declarations shaped `--<name>: <value>;`. Use a
 targeted search (e.g. `grep -n -- '--[a-zA-Z0-9-]\+[[:space:]]*:'`) to locate
 candidate lines, then **read enough surrounding context to find the nearest
-enclosing selector block** — walk upward from the match to the nearest
-unmatched `{`, and read the selector text immediately before it. Do not
-guess a token's scope from indentation or proximity alone; brace-matching is
-required because token declarations are often nested inside `@layer`,
-`@media`, or `@supports` at-rules, which do not change the selector's
-root-ness.
+enclosing block** — walk upward from the match to the nearest unmatched `{`,
+and read the text immediately before it. Do not guess a token's scope from
+indentation or proximity alone; brace-matching is required because token
+declarations are often nested inside `@layer`, `@media`, or `@supports`
+at-rules, which do not change the selector's root-ness.
+
+That text immediately before the `{` is usually a selector (`:root`, `.card`,
+...), but it can also be an at-rule prelude with **no selector at all** — a
+Tailwind v4 `@theme` block (`@theme { --color-primary: #8839ef; ... }`)
+declares its custom properties directly, one level in, with nothing selector
+shaped wrapping them. Record that at-rule text (`@theme`, `@theme inline`,
+...) as the block's identity; Step 3c below treats it as root-level.
 
 When reading a declaration's **value**, don't stop at the first `;` or `}`
 you see — a quoted string value can legally contain either
@@ -111,17 +117,27 @@ reason.
 #### 3c. Keep root-level declarations only
 
 A declaration is **root-level** — and therefore editable, and therefore worth
-recording — only if its nearest enclosing selector is one of:
+recording — if its nearest enclosing block is one of:
 
 - `:root`
 - `html`, or `html[...]` (attribute selector on `html`)
 - `[data-theme="..."]` or similar attribute/class selectors **when they are
   themselves top-level** (not nested inside a `.card`, a component class, or
   any other non-root selector)
+- a Tailwind v4 `@theme` at-rule, in any of its forms (`@theme`,
+  `@theme inline`, `@theme reference`, ...) — even though it has no selector
+  at all (Step 3b). **This is the primary case, not an edge case**: kernl —
+  the project's first real target app — authors essentially all of its
+  design tokens (~60 of them) directly inside a Tailwind v4 `@theme` block in
+  `web/assets/css/tailwind.css`, with no `:root { ... }` wrapper in source.
+  Tailwind compiles `@theme` output to `:root` custom properties at
+  build/runtime, so treating it as anything but root-level would make setup
+  mode skip every one of kernl's tokens.
 
-at-rule wrappers (`@layer`, `@media`, `@supports`) around one of the above do
-not disqualify it — kernl's tokens, for example, live inside a Tailwind v4
-`@theme` block that itself expands to `:root` rules under `@layer`.
+at-rule wrappers (`@layer`, `@media`, `@supports`) around one of the
+selector-based cases above do not disqualify it either — e.g. a `@theme`
+block's compiled output can itself land inside a `@layer` rule, and an
+explicit `:root { ... }` can be nested inside `@media`.
 
 Anything else — a class selector, an id selector, a descendant selector, a
 Vue/Svelte scoped-hash selector — is **not root-level**. Skip it, but keep a
@@ -178,9 +194,9 @@ scanned_at: <ISO-8601 timestamp>
 
 | Name | Kind | Value | Selector | Location |
 |---|---|---|---|---|
-| `--color-primary` | color | `#8839ef` | `@layer theme → :root` | `web/assets/css/tailwind.css:12` |
+| `--color-primary` | color | `#8839ef` | `@theme` | `web/assets/css/tailwind.css:12` |
 | `--color-primary` | color | `#1e1e2e` | `[data-theme="dark"]` | `web/assets/css/theme.css:5` |
-| `--font-body` | font-family | `Inter, sans-serif` | `@layer theme → :root` | `web/assets/css/tailwind.css:20` |
+| `--font-body` | font-family | `Inter, sans-serif` | `@theme` | `web/assets/css/tailwind.css:20` |
 
 ## Scan summary
 
@@ -201,10 +217,12 @@ Notes on the table:
 - `Selector` is the full nesting path from the outermost at-rule down to the
   immediate selector, joined with ` → ` (e.g.
   `@media (prefers-color-scheme: dark) → :root`, or just `:root` when there
-  is no wrapping at-rule). Two definitions of the same token can otherwise
-  both read as `:root` and look identical side by side — the nesting path is
-  what tells them apart at a glance; `Location` disambiguates exactly, by
-  file:line.
+  is no wrapping at-rule). For a `@theme` block (Step 3c), there is no
+  selector to append — record the at-rule text itself, e.g. `@theme` or
+  `@theme inline`. Two definitions of the same token can otherwise both read
+  as `:root` (or both as `@theme`) and look identical side by side — the
+  nesting path is what tells them apart at a glance; `Location` disambiguates
+  exactly, by file:line.
 - `Location` is `<path relative to repo root>:<line number>`.
 
 **Safety.** `design.md` is the only file this mode writes, and it always
