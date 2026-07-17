@@ -121,7 +121,7 @@ don't spawn a fleet for it.
       Verify: hand-written diff JSON applied to the demo fixture edits the right
       definitions, incl. the `[data-theme]` anchor case and a stop-and-ask case.
       *(depends: T11)*
-- [ ] **T14** `README.md` — what / install (npm + skill symlink) / inject
+- [x] **T14** `README.md` — what / install (npm + skill symlink) / inject
       snippets / limitations (PLAN D4, D6, CSP, rescan). Minimal and honest;
       polish at `/public-repo`. *(depends: T13)*
 
