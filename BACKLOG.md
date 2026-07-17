@@ -57,7 +57,7 @@ don't spawn a fleet for it.
       props read via CSSOM iteration (`style.item` + `getPropertyValue`), never by
       splitting `cssText`. TDD: authored-string + jsdom fixtures incl. adversarial
       values (`;`/`}` inside strings, comments). *(depends: —)*
-- [ ] **T2** active-value resolution (trimmed `getComputedStyle`), root-level
+- [x] **T2** active-value resolution (trimmed `getComputedStyle`), root-level
       flagging (PLAN D3), multi-definition dedupe, computed-style supplementary
       enumeration, and the **`before` algorithm** (PLAN §4, all 3 branches). Tests
       incl. authored≠computed case (hex authored, `rgb(…)` computed via var()
