@@ -255,8 +255,25 @@ export function init(
 		);
 	}
 
+	/**
+	 * Rescan (PLAN T8) exists to pick up tokens from lazily-injected
+	 * stylesheets — it must never cost the user their in-flight session
+	 * (review-gate fix on T9). A fresh `scan(doc)` re-walks a DOM that may
+	 * already carry the user's own inline overrides, so it cannot simply
+	 * replace `current.session`: its snapshot would wrongly capture those
+	 * overrides as pre-existing (D12 corrupted), its baseline's `before`
+	 * would anchor on the edited value (§4 corrupted), and every live
+	 * override would vanish (`diff()` empty — breaks SCOPE check #3, Save).
+	 * Instead, merge: keep the original session (baseline, snapshot,
+	 * overrides all untouched for known tokens) and only add entries for
+	 * tokens the fresh scan found that it didn't already know. The fresh
+	 * scan's dump counters are used as-is — they describe the page as it is
+	 * now, which is exactly what they're for.
+	 */
 	function rescan(): DumpResult {
-		current = scan(doc);
+		const fresh = scan(doc);
+		current.session.mergeNewTokens(fresh.session);
+		current = { session: current.session, dump: fresh.dump };
 		logSkipped(current.dump.skipped);
 		renderPanel();
 		return current.dump;

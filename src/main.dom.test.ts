@@ -13,7 +13,7 @@
 // setValue() calls made on the panel — which is ordinary glue code, not
 // Tweakpane-coupled, and stays TDD per this file's own module (main.ts).
 
-import { afterEach, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { init, type LiveTweaksWindow, type PanelFactory } from "./main";
 import type { PanelHost } from "./panel/host";
 import type {
@@ -267,9 +267,10 @@ it("a live override survives into a later render's token value", () => {
 	fake.callbacks?.onChange("--spacing-lg", "32px");
 	fake.callbacks?.onRescan();
 
-	// rescan() rebuilds the session from the DOM, so it picks up the applied
-	// override's *current* value, not the pre-edit baseline — matches D12's
-	// intent that overrides are real DOM state, not just panel bookkeeping.
+	// rescan() merges rather than replaces (review-gate fix): the override
+	// itself is untouched by the merge, and buildPanelTokens() always prefers
+	// a live override over the baseline's activeValue — so the re-rendered
+	// control still shows the edit, not the pre-edit baseline value.
 	const rescannedToken = fake.renders[1]?.tokens.find(
 		(t) => t.name === "--spacing-lg",
 	);
@@ -298,5 +299,66 @@ it("onSave falls back to the copy-paste modal when navigator.clipboard is absent
 	const exported = JSON.parse(modal?.querySelector("textarea")?.value ?? "{}");
 	expect(exported).toEqual({
 		"--spacing-lg": { before: "24px", after: "32px" },
+	});
+});
+
+describe("rescan() merges instead of replacing (review-gate regression fix)", () => {
+	// Shared setup for all three: edit a token, then rescan while a
+	// lazily-injected stylesheet adds a new one — mirrors PLAN T8's actual
+	// reason for Rescan existing (picking up new tokens), which must not
+	// cost the user their in-flight session.
+	function editThenRescanWithNewToken() {
+		mountStyle(":root { --spacing-lg: 24px; }");
+		const fake = fakePanelFactory();
+		init(document, freshWindow(), fake.factory);
+
+		fake.callbacks?.onChange("--spacing-lg", "32px");
+		mountStyle(":root { --spacing-lg: 24px; --radius-md: 8px; }");
+		fake.callbacks?.onRescan();
+
+		return fake;
+	}
+
+	it("(a) diff() still contains the edit, anchored on the ORIGINAL before — not the fresh scan's post-edit value", async () => {
+		const fake = editThenRescanWithNewToken();
+
+		// window.LiveTweaks exposes no diff() directly (only dump/rescan), so
+		// Save is the real production path to observe it: onSave() exports
+		// session.diff() (export.ts), and jsdom has no Clipboard API, so the
+		// fallback modal's textarea carries the exact exported JSON.
+		fake.callbacks?.onSave();
+		await Promise.resolve();
+		await Promise.resolve();
+
+		const modal = document.getElementById("live-tweaks-export-fallback");
+		const exported = JSON.parse(
+			modal?.querySelector("textarea")?.value ?? "{}",
+		);
+		expect(exported).toEqual({
+			"--spacing-lg": { before: "24px", after: "32px" },
+		});
+	});
+
+	it("(b) reset restores the true pre-session value, not the edited value a fresh scan would wrongly snapshot", () => {
+		const fake = editThenRescanWithNewToken();
+
+		fake.callbacks?.onReset("--spacing-lg");
+
+		// There was no pre-existing inline value before this session ever
+		// ran, so the correct D12 instruction is "remove" — a buggy replace-
+		// on-rescan would instead "restore" to the edited "32px" the fresh
+		// scan's snapshot wrongly captured as pre-existing.
+		expect(
+			document.documentElement.style.getPropertyValue("--spacing-lg"),
+		).toBe("");
+	});
+
+	it("(c) a token newly present in the second scan appears in panelTokens", () => {
+		const fake = editThenRescanWithNewToken();
+
+		const latestRender = fake.renders.at(-1);
+		expect(latestRender?.tokens.map((t) => t.name)).toEqual(
+			expect.arrayContaining(["--spacing-lg", "--radius-md"]),
+		);
 	});
 });
