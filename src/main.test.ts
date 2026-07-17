@@ -8,6 +8,7 @@
 import { describe, expect, it } from "vitest";
 import {
 	buildDumpResult,
+	formatSkipped,
 	isNoiseToken,
 	LIVE_TWEAKS_VERSION,
 	panelTokens,
@@ -111,5 +112,36 @@ describe("buildDumpResult", () => {
 
 	it("passes unreadableSheets through unchanged", () => {
 		expect(buildDumpResult([], 3).skipped.unreadableSheets).toBe(3);
+	});
+});
+
+describe("formatSkipped", () => {
+	it("formats the three always-present counters", () => {
+		expect(
+			formatSkipped({
+				nonRoot: 1,
+				noise: 2,
+				unclassified: 1,
+				unreadableSheets: 0,
+			}),
+		).toBe("1 non-root, 1 unclassified, 2 noise vars skipped");
+	});
+
+	it("appends the unreadable-sheets counter only when non-zero (PLAN D2)", () => {
+		const zero = formatSkipped({
+			nonRoot: 0,
+			noise: 0,
+			unclassified: 0,
+			unreadableSheets: 0,
+		});
+		expect(zero).not.toContain("unreadable");
+
+		const some = formatSkipped({
+			nonRoot: 0,
+			noise: 0,
+			unclassified: 0,
+			unreadableSheets: 2,
+		});
+		expect(some).toContain("2 unreadable sheets");
 	});
 });
