@@ -32,7 +32,7 @@ the framework doesn't own them). **No CSS vars → no product** — which is why
 | Piece | What it does |
 |---|---|
 | **Skill `tweaks` — setup** (first invocation) | Reads `design.md` if present; else extracts and maps the app's CSS custom properties; else (hardcoded colors) tells the user live-editing is impossible until tokens exist and offers to refactor into CSS vars. |
-| **Panel injection** | A dev-only `<script>` that reads every CSS var from the stylesheets and renders a floating edit panel in a **Shadow DOM** (no style collisions). Injection: bookmarklet (zero setup) or dev-only `index.html` snippet. |
+| **Panel injection** | A dev-only `<script>` that reads every CSS var from the stylesheets and renders a floating edit panel in a **Shadow DOM** (no style collisions). Injection: dev-only `index.html` snippet (the bookmarklet moved to "Later" — see below; contradiction resolved in PLAN.md D11). |
 | **Live editing** | Colors + fonts (incl. icon **color/size** — it's CSS). Each var gets a picker; edits call `setProperty` as you type. |
 | **Save → round-trip** | Panel tracks a before/after diff (`{ '--color-primary': {before, after} }`), **Save** serializes it to JSON; user pastes it into `/tweaks implement <map>`; the agent greps each var's definition in source and swaps the value. Mechanical, low-risk. |
 
