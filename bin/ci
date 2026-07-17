@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+echo "==> install";     npm ci
+echo "==> lint+format"; npx biome ci .
+echo "==> typecheck";   npx tsc --noEmit
+echo "==> test";        npm test
+echo "==> build";       npm run build
+echo "==> audit";       npm audit --audit-level=high
+echo "CI green."
