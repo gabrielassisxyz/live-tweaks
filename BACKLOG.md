@@ -107,7 +107,7 @@ don't spawn a fleet for it.
 
 ## P5 — `/tweaks` skill (Track B — needs only PLAN §4 + D3/D10)
 
-- [ ] **T11** `skills/tweaks/SKILL.md` — *setup*, token-having paths: read
+- [x] **T11** `skills/tweaks/SKILL.md` — *setup*, token-having paths: read
       `design.md` if present; missing/stale → rescan source, rewrite wholesale
       (PLAN D10); end printing injection instructions (script tag + dev-gated
       `import('live-tweaks')`). Verify: run against `demo/` finds the fixture
