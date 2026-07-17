@@ -96,3 +96,12 @@
   spaces — run `npm run format`.
 - `.ai-jail` is gitignored (machine-specific absolute paths); recreate it per machine
   from the house default in `project-bootstrap`.
+- **T7 spike outcome (2026-07-17): PASS** — Tweakpane 4.0.5 works in an open Shadow DOM
+  (Chromium via Playwright, evidence in `spike/`). Mount, color-picker popup open, popup
+  click-drag (stays open, value updates, page var applied live), and keyboard focus/typing
+  all verified. So `panel.ts` adopts Tweakpane (not the native-inputs fallback). Two gotchas
+  for T8: (1) the style-clone workaround's target is `style[data-tp-style="plugin-default"]`,
+  NOT `"default"` as PLAN D1's example string reads — clone by attribute *presence*
+  (`style[data-tp-style]`), which is version-robust. (2) The button that opens the picker is
+  `.tp-colswv_b` (`.tp-colv_t` is the adjacent hex text field). No `composedPath` retargeting
+  breakage observed in 4.0.5.

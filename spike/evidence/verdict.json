@@ -1,0 +1,30 @@
+{
+	"verdict": "PASS",
+	"tweakpane": "4.0.5",
+	"results": {
+		"mount": {
+			"pass": true,
+			"detail": "tp root elements in shadow DOM: 1"
+		},
+		"style-clone": {
+			"pass": true,
+			"detail": "clonedDefaultStyle=true, tp-rotv bg=rgb(40, 41, 46)"
+		},
+		"popup-opens": {
+			"pass": true,
+			"detail": "visible popups (.tp-popv-v): 1"
+		},
+		"popup-clickdrag": {
+			"pass": true,
+			"detail": "stayOpen=true, value #8839ef -> #54337f, page --color-primary applied=#54337f"
+		},
+		"keyboard-focus": {
+			"pass": true,
+			"detail": "shadow.activeElement=tp-txtv_i, font Inter, system-ui, sans-serif -> Georgia, serif"
+		},
+		"no-console-errors": {
+			"pass": true,
+			"detail": "none"
+		}
+	}
+}

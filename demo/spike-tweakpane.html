@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>T7 spike — Tweakpane 4.0.5 in Shadow DOM</title>
+		<link rel="stylesheet" href="./tokens.css" />
+		<style>
+			/* Spike-only chrome. NOT product code — throwaway T7 evidence page. */
+			.spike-note {
+				font-family: system-ui, sans-serif;
+				max-width: 40rem;
+				margin: 1rem auto;
+				padding: 1rem;
+				border: 1px dashed #888;
+			}
+			#host {
+				position: fixed;
+				top: 16px;
+				right: 16px;
+				width: 320px;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="page">
+			<h1>live-tweaks demo</h1>
+			<p class="spike-note">
+				T7 spike harness. A Tweakpane 4.0.5 panel is mounted inside an
+				<strong>open Shadow DOM</strong> host (top-right). Editing the color
+				binding live-updates <code>--color-primary</code> on this page, and the
+				text binding live-updates <code>--font-body</code> — proving the panel
+				drives the real UI through the shadow boundary.
+			</p>
+			<div class="card">
+				<button type="button" class="button-primary">Primary action</button>
+				<button type="button" class="button-secondary">Secondary action</button>
+			</div>
+		</div>
+
+		<div id="host"></div>
+
+		<!-- Relative path resolves to /node_modules/... when the project root is
+		     served over http (static server or `npm run dev`). tweakpane's dist is
+		     an ES module, so this is a plain module import, no bundler needed. -->
+		<script type="module">
+			import { Pane } from "../node_modules/tweakpane/dist/tweakpane.min.js";
+
+			const root = document.documentElement;
+			const host = document.getElementById("host");
+			// OPEN shadow root — the product mounts the panel in one (D1).
+			const shadow = host.attachShadow({ mode: "open" });
+			const mount = document.createElement("div");
+			shadow.appendChild(mount);
+
+			const params = {
+				// Seeded from the page's own tokens so edits are visibly live.
+				primary: "#8839ef",
+				fontBody: "Inter, system-ui, sans-serif",
+			};
+
+			const pane = new Pane({ container: mount });
+			const folder = pane.addFolder({ title: "Design tokens" });
+
+			folder
+				.addBinding(params, "primary", { label: "--color-primary" })
+				.on("change", (ev) => root.style.setProperty("--color-primary", ev.value));
+
+			folder
+				.addBinding(params, "fontBody", { label: "--font-body" })
+				.on("change", (ev) => root.style.setProperty("--font-body", ev.value));
+
+			// --- Style-clone workaround (cocopon/tweakpane#535) ---------------------
+			// Tweakpane appends its <style data-tp-style> elements to document.head
+			// (it resolves `ownerDocument`, which for a shadow-root child is still the
+			// top document). Those styles do not cross the shadow boundary, so the
+			// panel renders unstyled. Fix: clone every tp style element from
+			// document.head into the shadow root after mount.
+			// NOTE (T7 finding): in 4.0.5 the default stylesheet's attribute is
+			// data-tp-style="plugin-default", NOT "default" as PLAN D1's example
+			// string reads. Cloning by attribute *presence* (below) is version-robust
+			// and is the form the product (T8) should use.
+			function cloneTweakpaneStyles() {
+				const styles = document.head.querySelectorAll("style[data-tp-style]");
+				for (const el of styles) {
+					if (shadow.querySelector(`style[data-tp-style="${el.dataset.tpStyle}"]`)) {
+						continue;
+					}
+					shadow.appendChild(el.cloneNode(true));
+				}
+				return styles.length;
+			}
+			const clonedCount = cloneTweakpaneStyles();
+
+			// Evidence hooks for the headless driver (spike/drive-spike.mjs).
+			window.__spike = {
+				shadow,
+				pane,
+				params,
+				clonedDefaultStyle: !!shadow.querySelector("style[data-tp-style]"),
+				clonedCount,
+				getPrimary: () => params.primary,
+				getFontBody: () => params.fontBody,
+				getAppliedPrimary: () =>
+					getComputedStyle(root).getPropertyValue("--color-primary").trim(),
+			};
+			window.dispatchEvent(new Event("spike-ready"));
+		</script>
+	</body>
+</html>
