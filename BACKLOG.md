@@ -57,14 +57,14 @@ don't spawn a fleet for it.
       props read via CSSOM iteration (`style.item` + `getPropertyValue`), never by
       splitting `cssText`. TDD: authored-string + jsdom fixtures incl. adversarial
       values (`;`/`}` inside strings, comments). *(depends: —)*
-- [ ] **T2** active-value resolution (trimmed `getComputedStyle`), root-level
+- [x] **T2** active-value resolution (trimmed `getComputedStyle`), root-level
       flagging (PLAN D3), multi-definition dedupe, computed-style supplementary
       enumeration, and the **`before` algorithm** (PLAN §4, all 3 branches). Tests
       incl. authored≠computed case (hex authored, `rgb(…)` computed via var()
       chain). Checkpoint: jsdom capability probe — if custom props don't survive
       jsdom CSSOM, swap to `happy-dom` and note in AGENTS.md (PLAN D8).
       *(depends: T1)*
-- [ ] **T3** `src/classify.ts` — color / font-family / length / other per PLAN D5
+- [x] **T3** `src/classify.ts` — color / font-family / length / other per PLAN D5
       (trimmed input; font requires name match; `calc()`/unitless excluded →
       other). Table-driven tests. *(depends: T1)*
 - [ ] **T4** `src/state.ts` — baseline (raw+resolved per token), pre-existing
@@ -112,11 +112,11 @@ don't spawn a fleet for it.
       (PLAN D10); end printing injection instructions (script tag + dev-gated
       `import('live-tweaks')`). Verify: run against `demo/` finds the fixture
       tokens, writes correct `design.md`. *(depends: —)*
-- [ ] **T12** *setup*, no-vars path: detect hardcoded values, explain the
+- [x] **T12** *setup*, no-vars path: detect hardcoded values, explain the
       constraint, offer interactive refactor-to-vars (file-by-file, small diffs).
       Verify: run against a hardcoded-colors fixture page produces the
       explanation + a concrete refactor offer. *(depends: T11)*
-- [ ] **T13** *implement* mode: parse diff JSON, locate definitions, apply PLAN D3
+- [x] **T13** *implement* mode: parse diff JSON, locate definitions, apply PLAN D3
       anchor rule (ambiguous → stop and ask), edit files, show diff summary.
       Verify: hand-written diff JSON applied to the demo fixture edits the right
       definitions, incl. the `[data-theme]` anchor case and a stop-and-ask case.

@@ -96,6 +96,12 @@
   spaces — run `npm run format`.
 - `.ai-jail` is gitignored (machine-specific absolute paths); recreate it per machine
   from the house default in `project-bootstrap`.
+- T2 jsdom computed-style probe (2026-07-17): jsdom's `getComputedStyle(documentElement)`
+  **does** carry plain root custom-property values and **does** enumerate their names, but
+  **does not** resolve `var()` chains (returns the literal `var(...)`) nor canonicalize
+  colors — so no `happy-dom` swap (PLAN D8), but the `before` var-substitution/match must
+  stay a pure function fed injected computed values (`src/resolve.ts` / `resolve.pure.test.ts`),
+  never asserted through jsdom.
 - **T7 spike outcome (2026-07-17): PASS** — Tweakpane 4.0.5 works in an open Shadow DOM
   (Chromium via Playwright, evidence in `spike/`). Mount, color-picker popup open, popup
   click-drag (stays open, value updates, page var applied live), and keyboard focus/typing

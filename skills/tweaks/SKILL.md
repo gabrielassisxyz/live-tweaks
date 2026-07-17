@@ -16,8 +16,8 @@ This skill has two invocations, matched by how it is called:
   properties (design tokens), write or refresh `design.md`, then print
   instructions for injecting the live-editing panel. Covered below.
 - **`/tweaks implement <diff-json>`** — **implement mode**: apply an exported
-  before/after diff back into the app's source files. *(Not yet implemented —
-  see "Implement mode" stub at the end of this file.)*
+  before/after diff back into the app's source files. Specified in the
+  "Implement mode" section below.
 
 Both modes operate on the **current working directory's repository** (the app
 the user is asking to tweak), never on the `live-tweaks` package itself.
@@ -30,8 +30,8 @@ properties (design tokens) to work with:
 1. **The app has CSS custom properties** — inventory them. This branch is
    fully specified below.
 2. **The app has no CSS custom properties** — hardcoded values only, so live
-   editing is impossible until tokens exist. *(Not yet implemented — see
-   "No-vars path" stub at the end of this file.)*
+   editing is impossible until tokens exist. Specified in the "No-vars path"
+   section below.
 
 You cannot know which branch applies until after the scan in Step 3, so always
 run Steps 1–3 first.
@@ -238,7 +238,7 @@ values.
 - If the inventory has **at least one row** → continue to Step 4 (the
   token-having path this document covers).
 - If the inventory is **empty** → this is the no-vars path. Stop here and
-  follow the "No-vars path" stub below instead of Step 4.
+  follow the "No-vars path" section below instead of Step 4.
 
 ### Step 4 — Print injection instructions
 
@@ -270,20 +270,193 @@ Loading either one mounts the panel automatically over the running page; no
 further setup call is required. Reloading the page re-runs the scan client
 side, so newly-added tokens show up without re-running `/tweaks`.
 
-## No-vars path (stub — not yet implemented)
+## No-vars path
 
-Reached from Step 3g when the scan finds zero root-level custom properties.
-Scope: detect hardcoded values, explain the constraint ("no CSS vars, no
-product" — live editing needs `:root`-level custom properties to exist
-first), and offer an interactive, file-by-file refactor into CSS vars with
-small diffs. Left as a stub deliberately — implementing this is a separate,
-later task.
+Reached from Step 3g when the scan of Steps 1–3 found **zero** root-level
+custom properties. The app styles everything with hardcoded values, so there
+is nothing on `:root` for the live panel to override — and the panel edits
+*only* by setting `--var` overrides on the document root. This is the
+product's load-bearing constraint, stated plainly: **no CSS custom
+properties, no live editing.** Before the panel can help, the design values it
+would edit have to exist as `:root`-level custom properties. Extracting them
+is a first-class setup step, not a workaround — but it edits source, so it is
+done *with* the user, one file at a time, never in a single sweep.
 
-## Implement mode (stub — not yet implemented)
+Do not fall back to Step 4 (injection) from here: injecting the panel over a
+page with no tokens would mount an empty, useless panel. Offer the refactor
+instead; if the user declines, setup stops — honestly — with no tokens to
+edit.
 
-Invoked as `/tweaks implement <diff-json>`. Scope: parse the exported
-before/after diff JSON, locate each token's definition(s) in source (the
-anchor rule: exactly one root-level definition whose current value matches
-`before` → replace; several matches or none → stop and ask, never guess),
-apply the edits, and show a diff summary. Left as a stub deliberately —
-implementing this is a separate, later task.
+### N1 — State the constraint and what changes
+
+Tell the user, in plain terms:
+
+- The scan found no `:root`-level custom properties, so live editing is not
+  possible yet.
+- The fix is to extract the design values (colors, fonts) the app already
+  hardcodes into CSS custom properties on a root selector, then re-run setup.
+- This is **pure extraction**: each hardcoded value becomes
+  `var(--token-name)` and the token is defined with that same value, so the
+  rendered result is identical — no visual change, only a new seam the panel
+  (and future edits) can grab.
+
+### N2 — Detect and inventory the hardcoded values
+
+Reuse the candidate files from Step 3a (same glob, same exclusions). Within
+them, find the hardcoded design values worth tokenizing — the same kinds the
+panel can later edit (D5):
+
+- **colors** — hex (`#` + 3/4/6/8 digits), `rgb(`/`rgba(`/`hsl(`/`hsla(`/
+  `hwb(`/`lab(`/`lch(`/`oklab(`/`oklch(` functions, and well-known color
+  keywords — wherever they appear as property values.
+- **font-family** — `font-family:` declarations (and the family part of the
+  `font:` shorthand).
+
+Group by **value**, not by occurrence: one color used in twelve places is the
+single strongest refactor candidate, because one new token replaces all twelve
+uses. Present a short, honest inventory — the recurring values, roughly where
+they appear, and how many times — leading with the highest-impact ones. Don't
+list every one-off length; keep the offer focused on what a person would
+actually want to tweak (colors and fonts), matching the panel's own scope.
+
+### N3 — Agree on token names
+
+Do not silently invent a taxonomy. Propose sensible, conventional names for
+the values you found (`--color-primary`, `--color-bg`, `--color-text`,
+`--font-body`, `--font-heading`, …), tied to how each value is used, and let
+the user correct them. The names are the vocabulary they will edit later, so
+they are the user's call, not yours.
+
+### N4 — Refactor file by file, small diffs, user confirms each step
+
+Extract incrementally — never rewrite the whole codebase in one edit:
+
+1. **Pick a home for the tokens.** If a global stylesheet with a `:root { }`
+   block already exists, add the definitions there; otherwise create one (or
+   add a `:root { }` block to the app's main global stylesheet) and make sure
+   it is loaded. Define each agreed token with the *current* hardcoded value.
+2. **Go one file at a time.** For each file, show a small, reviewable diff: the
+   specific hardcoded values replaced with `var(--token-name)`. Keep the diff
+   to a single file (or a single logical group) so it is easy to read and easy
+   to revert.
+3. **Wait for the user to confirm before applying, then move on.** After each
+   file the app still renders identically (the var resolves to the same
+   value), so every step is independently safe and the user can stop at any
+   point with a working app.
+
+### N5 — Finish by re-running setup
+
+Once the user has extracted as many values as they want, the app now has
+root-level tokens. Re-run setup from Step 1: the scan will find the new
+tokens, write `design.md`, and reach Step 4 to print the panel-injection
+instructions. The no-vars path has done its job the moment there is at least
+one `:root`-level custom property to edit.
+
+**Safety.** Unlike the token-having path (which writes only `design.md`), this
+path edits the app's **source files** — it is the one setup branch that
+changes code. Guard it accordingly: only ever edit files inside the repo root
+from Step 1; change only the specific declarations shown in the confirmed
+diff; keep every extracted value identical to the original (extraction, not
+redesign); and treat all values as inert text — copy them verbatim, never
+evaluate or shell out on a value even if it looks unusual. Apply nothing the
+user has not confirmed for that file.
+
+## Implement mode
+
+Invoked as `/tweaks implement <diff-json>` — the round-trip half of the
+product. The user edited tokens live in the panel, hit Save, and pasted the
+exported before/after diff; this mode writes those `after` values back into
+the app's source, choosing the right definition by the `before` anchor. Like
+the no-vars path, it operates on the current working directory's repository
+and writes source files, so its safety guards below are not optional.
+
+### I1 — Parse the diff JSON, strictly
+
+The diff is exactly the contract shape (PLAN.md §4): a **flat map, no
+envelope**. Keys are custom-property names verbatim (leading `--`); each value
+is an object with a `before` and an `after` string:
+
+```json
+{
+  "--color-primary": { "before": "#8839ef", "after": "#e07850" },
+  "--font-body":     { "before": "Inter, sans-serif", "after": "system-ui" }
+}
+```
+
+Parse it as given. If it is wrapped in an outer object or array (an envelope),
+if a key is missing `before`/`after`, or if it is not valid JSON → **stop and
+report**; do not guess a shape. Both `before` and `after` are opaque token
+values: treat them as **inert text**. Never evaluate them, interpolate them
+into a shell command, or otherwise execute them — they originate from page
+content.
+
+### I2 — Build a current definition inventory
+
+For each token in the diff you need every candidate *definition* in source.
+Reuse setup mode's scan: if a `design.md` is present and validates as **fresh**
+(Step 2), its inventory already lists one row per definition with a `Location`
+(file:line) and `Selector`; otherwise rescan (Step 3) to rebuild it. Either
+way, before editing, **re-read the actual source line** at each candidate's
+`Location` and take its *current* value from the file — the file is the
+authority, `design.md` is only the index that points you at the candidates.
+The inventory is already root-level-only (Step 3c), so "candidate definition"
+means "root-level definition of this token".
+
+### I3 — Choose the definition to edit (the anchor rule)
+
+For each token in the diff, gather its candidate definitions and apply D3 /
+§4, comparing values **textually after trimming** (no evaluation, no `var()`
+resolution — `before` is already the raw authored text the panel exported):
+
+- **No candidate definition found** → **stop and ask**. The token may have
+  been renamed, live in a file the scan excluded, or its `before` may be a
+  *computed* value with no source match (§4 branch 3). Report it; do not
+  invent a place to write.
+- **Exactly one candidate definition** → replace it, regardless of whether its
+  current value equals `before` — there is nothing to disambiguate. If it does
+  *not* match `before`, note the discrepancy in the summary (the source moved
+  since export) but proceed.
+- **Multiple candidate definitions** → keep only those whose current source
+  value (trimmed) equals `before` (trimmed):
+  - **exactly one matches** → replace that one; leave the others untouched.
+    This is the theme case — e.g. `:root` and `[data-theme="dark"]` each define
+    the token, and `before` pins which one the user was actually looking at.
+  - **zero match, or more than one matches** → **stop and ask, never guess.**
+    Show the candidates (file:line, current value, selector) and let the user
+    pick. Two definitions can hold the *same* value (a light and a dark block
+    both `#11111b`), which is exactly the ambiguity this rule refuses to
+    resolve on its own.
+
+### I4 — Apply the edit
+
+For the chosen definition, replace **only the value** of its
+`--name: <value>;` declaration with `after`, written verbatim. Preserve the
+property name, the surrounding whitespace/indentation, and everything else on
+the line and in the file. When finding where the old value ends, scan past
+matched `'...'`/`"..."` string literals — a value may legally contain a `;`
+inside a quoted string (the Step 3b rule), so do not truncate at the first
+`;`. Edit nothing that is not the chosen definition's value.
+
+### I5 — Show a diff summary
+
+After applying the unambiguous edits, print a concise summary so the user can
+see exactly what happened:
+
+- one line per token that was written: `--name` — `<file>:<line>` —
+  `before` → `after`;
+- a clearly separated list of any tokens that were **stopped and asked**
+  (not-found, no match, or multiple matches) with the reason and the
+  candidates, so nothing is silently dropped;
+- a note on any single-definition token whose source value didn't match its
+  `before`.
+
+Resolve the stopped-and-asked tokens with the user, then apply their choice
+the same way. The edited files are under version control — recommend the user
+review the change with `git diff` before committing.
+
+**Safety.** Implement mode writes the app's **source files**, so it carries
+the same guards as the no-vars path: edit only within the repo root from
+Step 1; change only the located definition's value; and treat every `before`/
+`after` value as inert text — copied verbatim, never evaluated or passed to a
+shell. When the anchor rule is not certain, the rule *is* to stop and ask —
+never overwrite a definition on a guess.
