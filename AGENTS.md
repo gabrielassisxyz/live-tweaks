@@ -30,8 +30,9 @@
   STOP and flag it.
 - **Nothing may depend on Vue.** kernl is the first target app, but only as a guinea pig —
   the product is framework-agnostic by construction.
-- **Task backend:** markdown — parked ideas go to `IDEAS.md`; the v1 plan lives in
-  `SCOPE.md`. No issue tracker / beads needed at this size.
+- **Task backend:** markdown — scope authority is `SCOPE.md`; the v1 implementation
+  plan lives in `PLAN.md`; the drain queue is `BACKLOG.md`; parked ideas go to
+  `IDEAS.md`. No issue tracker / beads needed at this size.
 
 ## Tests (TDD)
 
@@ -40,6 +41,9 @@
   can't run headless, it's wrong.
 - Mock external I/O with a named fake, not an inline stub. DOM-dependent code gets a jsdom
   environment (add the dep only when the first DOM test appears).
+- **Recorded exemption (2026-07-17):** `src/panel/` (the Tweakpane wrapper) has no unit
+  tests — it is verified on the demo page via the T7 spike gate and the human checkpoints
+  in `BACKLOG.md` (T9/T15/T16). Everything left of `panel/` stays strictly TDD.
 - Before saying "done", run `bin/ci`; show the result.
 
 ## Small releases
