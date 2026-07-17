@@ -1,0 +1,5 @@
+/* Pulled in via @import from tokens.css — proves the walker recurses into
+   CSSImportRule.styleSheet instead of only reading the entry sheet. */
+:root {
+	--color-accent: #40a02b;
+}
