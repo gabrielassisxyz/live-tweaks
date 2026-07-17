@@ -51,7 +51,7 @@ don't spawn a fleet for it.
 
 ## P1 — extraction core
 
-- [ ] **T1** `src/extract.ts` — recursive walker per PLAN D2: rule-type switch
+- [x] **T1** `src/extract.ts` — recursive walker per PLAN D2: rule-type switch
       (style/media/supports/layer/nested), `CSSImportRule` recursion with own
       try/catch, `document.adoptedStyleSheets`, cross-origin skip counter; custom
       props read via CSSOM iteration (`style.item` + `getPropertyValue`), never by
