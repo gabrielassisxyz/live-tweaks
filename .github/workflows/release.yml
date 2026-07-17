@@ -1,0 +1,23 @@
+name: release
+on:
+  push:
+    tags: ["v*"]
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # OIDC for npm trusted publishing; provenance is automatic
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "npm"
+          registry-url: "https://registry.npmjs.org"
+      - run: bin/ci
+      # Auth is npm trusted publishing (OIDC) — no token, no secret. Bootstrap caveat:
+      # trusted publishing can only be configured on an EXISTING package, so the very
+      # first publish is manual (`npm publish` locally, 2FA prompt); every release
+      # after that lands through this workflow. Needs npm >= 11.5.1 (node 24 ships it).
+      - run: npm publish
