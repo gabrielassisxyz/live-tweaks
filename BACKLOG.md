@@ -79,7 +79,7 @@ don't spawn a fleet for it.
       `npm run build`, serve `demo/` over http, `LiveTweaks.dump()` lists exactly
       the fixture's root tokens with correct kinds and skip counters.
       *(depends: T4, T6)*
-- [ ] **T6** `demo/index.html` + `demo/tokens.css` — kernl-mirroring fixture per
+- [x] **T6** `demo/index.html` + `demo/tokens.css` — kernl-mirroring fixture per
       PLAN D7: tokens inside `@layer`, an `@media` override, an `@import`ed sheet,
       a component-scoped var, `--tw-*` noise, a `var()` reference, a
       semicolon-in-string value, a `[data-theme]` dark block. *(depends: —)*

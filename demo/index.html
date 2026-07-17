@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>live-tweaks demo</title>
+		<link rel="stylesheet" href="./tokens.css" />
+	</head>
+	<body>
+		<div class="page">
+			<h1>live-tweaks demo</h1>
+			<p>
+				A framework-free fixture (SCOPE.md success check #4) whose visible UI
+				is driven entirely by the CSS custom properties in
+				<code>tokens.css</code>. Edit a token in the panel and this page
+				updates live.
+			</p>
+
+			<div class="card">
+				<p><span class="empty-state-label"></span></p>
+				<button type="button" class="button-primary">Primary action</button>
+				<button type="button" class="button-secondary">Secondary action</button>
+			</div>
+
+			<p>
+				<button type="button" id="theme-toggle">Toggle dark theme</button>
+			</p>
+		</div>
+
+		<script>
+			// No framework, no build step: a plain toggle so the [data-theme="dark"]
+			// block (PLAN.md D7) is reachable without relying on the OS color scheme.
+			document.getElementById("theme-toggle").addEventListener("click", () => {
+				const root = document.documentElement;
+				if (root.dataset.theme === "dark") {
+					delete root.dataset.theme;
+				} else {
+					root.dataset.theme = "dark";
+				}
+			});
+
+			// Renders the semicolon-in-string token as visible text so the page
+			// keeps working (and looks intentional) even before live-tweaks is
+			// injected.
+			document.querySelector(".empty-state-label").textContent =
+				getComputedStyle(document.documentElement)
+					.getPropertyValue("--empty-state-label")
+					.trim()
+					.replace(/^"|"$/g, "");
+		</script>
+	</body>
+</html>

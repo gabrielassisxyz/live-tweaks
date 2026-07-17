@@ -1,0 +1,94 @@
+/* live-tweaks demo fixture (PLAN.md D7) — mirrors the CSS shapes kernl's
+   Tailwind v4 + daisyUI output actually has, so the extractor walker is
+   exercised against every pattern it must handle before T15 hits kernl for
+   real. Each block below is commented with the pattern it stands in for. */
+
+/* Pattern: an @import'ed sheet — the walker must recurse into
+   CSSImportRule.styleSheet, not just the entry sheet. */
+@import "./imported.css";
+
+/* Pattern: tokens declared inside an @layer block — Tailwind v4's @theme
+   output lands here at runtime, not as a top-level rule. */
+@layer tokens {
+	:root {
+		--color-primary: #8839ef;
+		--color-secondary: #1e66f5;
+		--color-bg: #ffffff;
+		--color-text: #1e1e2e;
+		--font-body: "Inter", system-ui, sans-serif;
+		--font-heading: Georgia, serif;
+		--radius-md: 8px;
+		--spacing-lg: 24px;
+
+		/* Pattern: a var() reference — display resolved, write literal (D4). */
+		--btn-bg: var(--color-primary);
+
+		/* Pattern: a semicolon inside a string value — must survive CSSOM
+		   iteration (style.item/getPropertyValue), never string-split cssText. */
+		--empty-state-label: "Nothing here; try again later";
+
+		/* Pattern: --tw-* framework noise — filtered by D13's prefix denylist,
+		   never rendered as an editable token. */
+		--tw-ring-offset-width: 0px;
+		--tw-gradient-from: #8839ef;
+	}
+}
+
+/* Pattern: an @media override on a root-level token — one control, `before`
+   resolves to the active definition (D3). */
+@media (prefers-color-scheme: dark) {
+	:root {
+		--color-bg: #11111b;
+		--color-text: #cdd6f4;
+	}
+}
+
+/* Pattern: a [data-theme] dark block — same token, alternate root selector. */
+[data-theme="dark"] {
+	--color-bg: #11111b;
+	--color-text: #cdd6f4;
+	--color-primary: #b4c5fe;
+}
+
+body {
+	margin: 0;
+	background: var(--color-bg);
+	color: var(--color-text);
+	font-family: var(--font-body);
+}
+
+h1 {
+	font-family: var(--font-heading);
+}
+
+.page {
+	max-width: 40rem;
+	margin: 0 auto;
+	padding: var(--spacing-lg);
+}
+
+/* Pattern: a component-scoped var (kernl's --focus-* style) — defined on a
+   non-root selector, so D3 must count and skip it, never render a control. */
+.card {
+	--card-radius: 12px;
+	border-radius: var(--card-radius);
+	padding: var(--spacing-lg);
+	margin-top: var(--spacing-lg);
+	border: 1px solid var(--color-secondary);
+}
+
+.button-primary {
+	background: var(--btn-bg);
+	color: white;
+	border: none;
+	padding: 0.6rem 1.2rem;
+	font-family: var(--font-body);
+}
+
+.button-secondary {
+	background: transparent;
+	color: var(--color-secondary);
+	border: 1px solid var(--color-secondary);
+	padding: 0.6rem 1.2rem;
+	font-family: var(--font-body);
+}
