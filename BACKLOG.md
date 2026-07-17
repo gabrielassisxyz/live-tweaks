@@ -11,9 +11,12 @@
 > review gate. Done = checked here + `bin/ci` green + the task's verify step
 > shown + AGENTS.md post-implementation checklist.
 >
-> **HUMAN CHECKPOINT** = the verify is visual/interactive: stop and ask Gabriel to
-> confirm; never self-declare a pass. A wave containing one does not close without
-> him.
+> **HUMAN CHECKPOINT** = the verify is visual/interactive and cannot be
+> self-declared a pass. The orchestrator does NOT block on Gabriel mid-drain: the
+> task's agent gathers the best evidence it can (command output, screenshots when
+> possible, explicit notes on what it could not verify) and the wave closes on
+> that evidence. Gabriel reviews all checkpoints in ONE batch after the last
+> implementation wave — T17 (release) only runs after that batch review passes.
 
 ## Dependency tree
 
@@ -39,9 +42,9 @@ Edge list (authoritative; the drawing is a convenience):
 | 2 | **T2 · T3 · T7 · (T12+T13)** | T12+T13 go to ONE agent — both edit `skills/tweaks/SKILL.md` (guaranteed conflict if split). T2 and T7 may both append to AGENTS.md (probe/spike outcomes) — trivial append conflict, resolve by keeping both lines. T2/T3 share test fixtures: keep fixtures per-module to stay disjoint. |
 | 3 | **T4 · T14** | |
 | 4–7 | **T5 → T8 → T9 → T10** | Serial chain (Track A tail) — hand it to a single agent as one branch rather than 4 spawns. T9 ends in a HUMAN CHECKPOINT. |
-| 8 | **T15** | HUMAN CHECKPOINT (kernl e2e). |
-| 9 | **T16** | HUMAN CHECKPOINT (demo e2e). |
-| 10 | **T17** | Release — the first `npm publish` is manual (2FA), Gabriel runs it. |
+| 8 | **T15** | HUMAN CHECKPOINT (kernl e2e) — collect evidence, don't block. |
+| 9 | **T16** | HUMAN CHECKPOINT (demo e2e) — collect evidence, don't block. |
+| 10 | **T17** | Runs only after Gabriel's batch review of all checkpoints; the first `npm publish` is manual (2FA), Gabriel runs it. |
 
 Max useful parallelism is wave 2 (4 agents); after wave 3 the graph is a chain —
 don't spawn a fleet for it.
