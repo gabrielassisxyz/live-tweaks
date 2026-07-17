@@ -53,8 +53,12 @@
 - Ships as an npm package (`live-tweaks`). Flow: `npm version <patch|minor|major>` →
   `git push --follow-tags` → the `v*` tag triggers `.github/workflows/release.yml`, which
   runs `bin/ci` and then `npm publish`.
-- Requires the `NPM_TOKEN` repo secret (not set yet — first publish is at v1).
-  `--provenance` assumes the repo is public by then; drop the flag if publishing earlier.
+- Auth is **npm trusted publishing (OIDC)** — no token, no repo secret, provenance
+  automatic. Bootstrap at v1: (1) first publish is manual — `npm publish` from a local
+  terminal, 2FA prompt (trusted publishing only configures on an existing package);
+  (2) then on npmjs.com → package → Settings → Trusted Publisher → GitHub Actions with
+  org `gabrielassisxyz`, repo `live-tweaks`, workflow `release.yml`, allowed action
+  `npm publish`. Every later release goes through the workflow.
 
 ## Security (habit, not a phase)
 
