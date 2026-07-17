@@ -30,8 +30,8 @@ properties (design tokens) to work with:
 1. **The app has CSS custom properties** — inventory them. This branch is
    fully specified below.
 2. **The app has no CSS custom properties** — hardcoded values only, so live
-   editing is impossible until tokens exist. *(Not yet implemented — see
-   "No-vars path" stub at the end of this file.)*
+   editing is impossible until tokens exist. Specified in the "No-vars path"
+   section below.
 
 You cannot know which branch applies until after the scan in Step 3, so always
 run Steps 1–3 first.
@@ -238,7 +238,7 @@ values.
 - If the inventory has **at least one row** → continue to Step 4 (the
   token-having path this document covers).
 - If the inventory is **empty** → this is the no-vars path. Stop here and
-  follow the "No-vars path" stub below instead of Step 4.
+  follow the "No-vars path" section below instead of Step 4.
 
 ### Step 4 — Print injection instructions
 
@@ -270,14 +270,96 @@ Loading either one mounts the panel automatically over the running page; no
 further setup call is required. Reloading the page re-runs the scan client
 side, so newly-added tokens show up without re-running `/tweaks`.
 
-## No-vars path (stub — not yet implemented)
+## No-vars path
 
-Reached from Step 3g when the scan finds zero root-level custom properties.
-Scope: detect hardcoded values, explain the constraint ("no CSS vars, no
-product" — live editing needs `:root`-level custom properties to exist
-first), and offer an interactive, file-by-file refactor into CSS vars with
-small diffs. Left as a stub deliberately — implementing this is a separate,
-later task.
+Reached from Step 3g when the scan of Steps 1–3 found **zero** root-level
+custom properties. The app styles everything with hardcoded values, so there
+is nothing on `:root` for the live panel to override — and the panel edits
+*only* by setting `--var` overrides on the document root. This is the
+product's load-bearing constraint, stated plainly: **no CSS custom
+properties, no live editing.** Before the panel can help, the design values it
+would edit have to exist as `:root`-level custom properties. Extracting them
+is a first-class setup step, not a workaround — but it edits source, so it is
+done *with* the user, one file at a time, never in a single sweep.
+
+Do not fall back to Step 4 (injection) from here: injecting the panel over a
+page with no tokens would mount an empty, useless panel. Offer the refactor
+instead; if the user declines, setup stops — honestly — with no tokens to
+edit.
+
+### N1 — State the constraint and what changes
+
+Tell the user, in plain terms:
+
+- The scan found no `:root`-level custom properties, so live editing is not
+  possible yet.
+- The fix is to extract the design values (colors, fonts) the app already
+  hardcodes into CSS custom properties on a root selector, then re-run setup.
+- This is **pure extraction**: each hardcoded value becomes
+  `var(--token-name)` and the token is defined with that same value, so the
+  rendered result is identical — no visual change, only a new seam the panel
+  (and future edits) can grab.
+
+### N2 — Detect and inventory the hardcoded values
+
+Reuse the candidate files from Step 3a (same glob, same exclusions). Within
+them, find the hardcoded design values worth tokenizing — the same kinds the
+panel can later edit (D5):
+
+- **colors** — hex (`#` + 3/4/6/8 digits), `rgb(`/`rgba(`/`hsl(`/`hsla(`/
+  `hwb(`/`lab(`/`lch(`/`oklab(`/`oklch(` functions, and well-known color
+  keywords — wherever they appear as property values.
+- **font-family** — `font-family:` declarations (and the family part of the
+  `font:` shorthand).
+
+Group by **value**, not by occurrence: one color used in twelve places is the
+single strongest refactor candidate, because one new token replaces all twelve
+uses. Present a short, honest inventory — the recurring values, roughly where
+they appear, and how many times — leading with the highest-impact ones. Don't
+list every one-off length; keep the offer focused on what a person would
+actually want to tweak (colors and fonts), matching the panel's own scope.
+
+### N3 — Agree on token names
+
+Do not silently invent a taxonomy. Propose sensible, conventional names for
+the values you found (`--color-primary`, `--color-bg`, `--color-text`,
+`--font-body`, `--font-heading`, …), tied to how each value is used, and let
+the user correct them. The names are the vocabulary they will edit later, so
+they are the user's call, not yours.
+
+### N4 — Refactor file by file, small diffs, user confirms each step
+
+Extract incrementally — never rewrite the whole codebase in one edit:
+
+1. **Pick a home for the tokens.** If a global stylesheet with a `:root { }`
+   block already exists, add the definitions there; otherwise create one (or
+   add a `:root { }` block to the app's main global stylesheet) and make sure
+   it is loaded. Define each agreed token with the *current* hardcoded value.
+2. **Go one file at a time.** For each file, show a small, reviewable diff: the
+   specific hardcoded values replaced with `var(--token-name)`. Keep the diff
+   to a single file (or a single logical group) so it is easy to read and easy
+   to revert.
+3. **Wait for the user to confirm before applying, then move on.** After each
+   file the app still renders identically (the var resolves to the same
+   value), so every step is independently safe and the user can stop at any
+   point with a working app.
+
+### N5 — Finish by re-running setup
+
+Once the user has extracted as many values as they want, the app now has
+root-level tokens. Re-run setup from Step 1: the scan will find the new
+tokens, write `design.md`, and reach Step 4 to print the panel-injection
+instructions. The no-vars path has done its job the moment there is at least
+one `:root`-level custom property to edit.
+
+**Safety.** Unlike the token-having path (which writes only `design.md`), this
+path edits the app's **source files** — it is the one setup branch that
+changes code. Guard it accordingly: only ever edit files inside the repo root
+from Step 1; change only the specific declarations shown in the confirmed
+diff; keep every extracted value identical to the original (extraction, not
+redesign); and treat all values as inert text — copy them verbatim, never
+evaluate or shell out on a value even if it looks unusual. Apply nothing the
+user has not confirmed for that file.
 
 ## Implement mode (stub — not yet implemented)
 
