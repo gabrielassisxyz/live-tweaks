@@ -64,7 +64,7 @@ don't spawn a fleet for it.
       chain). Checkpoint: jsdom capability probe — if custom props don't survive
       jsdom CSSOM, swap to `happy-dom` and note in AGENTS.md (PLAN D8).
       *(depends: T1)*
-- [ ] **T3** `src/classify.ts` — color / font-family / length / other per PLAN D5
+- [x] **T3** `src/classify.ts` — color / font-family / length / other per PLAN D5
       (trimmed input; font requires name match; `calc()`/unitless excluded →
       other). Table-driven tests. *(depends: T1)*
 - [ ] **T4** `src/state.ts` — baseline (raw+resolved per token), pre-existing
