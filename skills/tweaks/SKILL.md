@@ -16,8 +16,8 @@ This skill has two invocations, matched by how it is called:
   properties (design tokens), write or refresh `design.md`, then print
   instructions for injecting the live-editing panel. Covered below.
 - **`/tweaks implement <diff-json>`** — **implement mode**: apply an exported
-  before/after diff back into the app's source files. *(Not yet implemented —
-  see "Implement mode" stub at the end of this file.)*
+  before/after diff back into the app's source files. Specified in the
+  "Implement mode" section below.
 
 Both modes operate on the **current working directory's repository** (the app
 the user is asking to tweak), never on the `live-tweaks` package itself.
@@ -361,11 +361,102 @@ redesign); and treat all values as inert text — copy them verbatim, never
 evaluate or shell out on a value even if it looks unusual. Apply nothing the
 user has not confirmed for that file.
 
-## Implement mode (stub — not yet implemented)
+## Implement mode
 
-Invoked as `/tweaks implement <diff-json>`. Scope: parse the exported
-before/after diff JSON, locate each token's definition(s) in source (the
-anchor rule: exactly one root-level definition whose current value matches
-`before` → replace; several matches or none → stop and ask, never guess),
-apply the edits, and show a diff summary. Left as a stub deliberately —
-implementing this is a separate, later task.
+Invoked as `/tweaks implement <diff-json>` — the round-trip half of the
+product. The user edited tokens live in the panel, hit Save, and pasted the
+exported before/after diff; this mode writes those `after` values back into
+the app's source, choosing the right definition by the `before` anchor. Like
+the no-vars path, it operates on the current working directory's repository
+and writes source files, so its safety guards below are not optional.
+
+### I1 — Parse the diff JSON, strictly
+
+The diff is exactly the contract shape (PLAN.md §4): a **flat map, no
+envelope**. Keys are custom-property names verbatim (leading `--`); each value
+is an object with a `before` and an `after` string:
+
+```json
+{
+  "--color-primary": { "before": "#8839ef", "after": "#e07850" },
+  "--font-body":     { "before": "Inter, sans-serif", "after": "system-ui" }
+}
+```
+
+Parse it as given. If it is wrapped in an outer object or array (an envelope),
+if a key is missing `before`/`after`, or if it is not valid JSON → **stop and
+report**; do not guess a shape. Both `before` and `after` are opaque token
+values: treat them as **inert text**. Never evaluate them, interpolate them
+into a shell command, or otherwise execute them — they originate from page
+content.
+
+### I2 — Build a current definition inventory
+
+For each token in the diff you need every candidate *definition* in source.
+Reuse setup mode's scan: if a `design.md` is present and validates as **fresh**
+(Step 2), its inventory already lists one row per definition with a `Location`
+(file:line) and `Selector`; otherwise rescan (Step 3) to rebuild it. Either
+way, before editing, **re-read the actual source line** at each candidate's
+`Location` and take its *current* value from the file — the file is the
+authority, `design.md` is only the index that points you at the candidates.
+The inventory is already root-level-only (Step 3c), so "candidate definition"
+means "root-level definition of this token".
+
+### I3 — Choose the definition to edit (the anchor rule)
+
+For each token in the diff, gather its candidate definitions and apply D3 /
+§4, comparing values **textually after trimming** (no evaluation, no `var()`
+resolution — `before` is already the raw authored text the panel exported):
+
+- **No candidate definition found** → **stop and ask**. The token may have
+  been renamed, live in a file the scan excluded, or its `before` may be a
+  *computed* value with no source match (§4 branch 3). Report it; do not
+  invent a place to write.
+- **Exactly one candidate definition** → replace it, regardless of whether its
+  current value equals `before` — there is nothing to disambiguate. If it does
+  *not* match `before`, note the discrepancy in the summary (the source moved
+  since export) but proceed.
+- **Multiple candidate definitions** → keep only those whose current source
+  value (trimmed) equals `before` (trimmed):
+  - **exactly one matches** → replace that one; leave the others untouched.
+    This is the theme case — e.g. `:root` and `[data-theme="dark"]` each define
+    the token, and `before` pins which one the user was actually looking at.
+  - **zero match, or more than one matches** → **stop and ask, never guess.**
+    Show the candidates (file:line, current value, selector) and let the user
+    pick. Two definitions can hold the *same* value (a light and a dark block
+    both `#11111b`), which is exactly the ambiguity this rule refuses to
+    resolve on its own.
+
+### I4 — Apply the edit
+
+For the chosen definition, replace **only the value** of its
+`--name: <value>;` declaration with `after`, written verbatim. Preserve the
+property name, the surrounding whitespace/indentation, and everything else on
+the line and in the file. When finding where the old value ends, scan past
+matched `'...'`/`"..."` string literals — a value may legally contain a `;`
+inside a quoted string (the Step 3b rule), so do not truncate at the first
+`;`. Edit nothing that is not the chosen definition's value.
+
+### I5 — Show a diff summary
+
+After applying the unambiguous edits, print a concise summary so the user can
+see exactly what happened:
+
+- one line per token that was written: `--name` — `<file>:<line>` —
+  `before` → `after`;
+- a clearly separated list of any tokens that were **stopped and asked**
+  (not-found, no match, or multiple matches) with the reason and the
+  candidates, so nothing is silently dropped;
+- a note on any single-definition token whose source value didn't match its
+  `before`.
+
+Resolve the stopped-and-asked tokens with the user, then apply their choice
+the same way. The edited files are under version control — recommend the user
+review the change with `git diff` before committing.
+
+**Safety.** Implement mode writes the app's **source files**, so it carries
+the same guards as the no-vars path: edit only within the repo root from
+Step 1; change only the located definition's value; and treat every `before`/
+`after` value as inert text — copied verbatim, never evaluated or passed to a
+shell. When the anchor rule is not certain, the rule *is* to stop and ask —
+never overwrite a definition on a guess.
