@@ -73,7 +73,7 @@ don't spawn a fleet for it.
 
 ## P2 — panel shell (Track A)
 
-- [ ] **T5** `src/apply.ts` + `src/main.ts` + build config — init idempotency
+- [x] **T5** `src/apply.ts` + `src/main.ts` + build config — init idempotency
       guard, `window.LiveTweaks.{dump, rescan}`; vite `formats: ["iife","es"]` +
       package.json `exports`/`module` (PLAN D14; UMD forbidden). Verify:
       `npm run build`, serve `demo/` over http, `LiveTweaks.dump()` lists exactly
@@ -88,19 +88,19 @@ don't spawn a fleet for it.
       click-drag stays open, keyboard focus works (PLAN D1). Record outcome in
       AGENTS.md; on fail, `panel.ts` impl = native inputs behind the same
       interface. *(depends: T6)*
-- [ ] **T8** `src/panel/host.ts` + `src/panel/panel.ts` — floating Shadow DOM host
+- [x] **T8** `src/panel/host.ts` + `src/panel/panel.ts` — floating Shadow DOM host
       (bottom-right, max z-index, collapse), `TweaksPanel` interface, folders per
       kind, controls per PLAN D5, Rescan button. *(depends: T5, T7)*
 
 ## P3 — live editing (Track A)
 
-- [ ] **T9** edit wiring: control change → apply → state; per-var reset +
+- [x] **T9** edit wiring: control change → apply → state; per-var reset +
       reset-all (PLAN D12). **HUMAN CHECKPOINT**: SCOPE success-check #2 on the
       demo page (color + font update live as you type). *(depends: T8)*
 
 ## P4 — save / export (Track A)
 
-- [ ] **T10** `src/export.ts` — Save → contract JSON (PLAN §4) → clipboard;
+- [x] **T10** `src/export.ts` — Save → contract JSON (PLAN §4) → clipboard;
       fallback modal triggers on promise *rejection*, not only API absence. Unit
       verify: session with 2 edits + 1 reset exports exactly the 2, `before` =
       raw authored text. *(depends: T9)*
