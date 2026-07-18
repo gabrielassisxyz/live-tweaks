@@ -54,8 +54,7 @@ export function isNoiseToken(name: string): boolean {
  * Validates the raw `window.LiveTweaksConfig` value, since it arrives from
  * the host page untyped. Invalid shapes warn and fall back to no allowlist
  * (denylist behavior) rather than throwing — a config typo must never take
- * the panel down. An exact token name works as-is: a name is a prefix of
- * itself.
+ * the panel down.
  */
 export function readAllowlist(config: unknown): string[] | undefined {
 	if (config === undefined || config === null) return undefined;
@@ -84,8 +83,17 @@ export function readAllowlist(config: unknown): string[] | undefined {
 	return valid;
 }
 
+/** A trailing-dash entry (`--color-`) matches as a prefix; any other entry
+ * matches exactly. Exact entries deliberately do NOT match as prefixes:
+ * frameworks shadow app tokens and extend them with suffixes (daisyUI's
+ * `--color-primary-content` next to an app's `--color-primary`), so
+ * prefix-matching exact names would re-admit precisely the noise the
+ * allowlist exists to block — measured on kernl: 104 exact names matched
+ * 227 tokens under prefix semantics. */
 function matchesAllowlist(name: string, allow: readonly string[]): boolean {
-	return allow.some((prefix) => name.startsWith(prefix));
+	return allow.some((entry) =>
+		entry.endsWith("-") ? name.startsWith(entry) : name === entry,
+	);
 }
 
 /** Tokens worth a control: editable (D3), classified (D5), and past the D13

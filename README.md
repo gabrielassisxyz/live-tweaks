@@ -129,9 +129,11 @@ an allowlist **before** the script loads and the panel shows only matching token
 ```
 
 For the bundler path, set `window.LiveTweaksConfig` in your entry file before the
-`import("live-tweaks")` line. Entries are name prefixes; an exact token name works
-as-is (a name is a prefix of itself — handy when framework noise shares your
-prefix). When set, the allowlist replaces the built-in `--tw-`/`--un-` denylist,
+`import("live-tweaks")` line. An entry ending in `-` (like `--color-`) matches as
+a prefix; any other entry must match a token name exactly — so `--color-primary`
+does *not* pull in a framework's `--color-primary-content`, which matters when
+framework noise shares your naming. When set, the allowlist replaces the built-in
+`--tw-`/`--un-` denylist,
 and the panel's counter line reports how many tokens it filtered. An invalid
 config warns on the console and is ignored — it never blocks the panel.
 

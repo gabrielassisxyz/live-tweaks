@@ -201,7 +201,10 @@ enumerate. Both parked fallbacks are now built: `window.LiveTweaksConfig =
 names; supersedes the denylist when present) and an internal-scroll cap on the
 host (`max-height: 70vh`). Config arrives via a pre-declared global because the
 IIFE auto-mounts — there is no init call to pass options to, and the same shape
-works for both injection paths.
+works for both injection paths. Match rule: a trailing-dash entry is a prefix,
+anything else is exact — prefix-matching exact names re-admitted daisyUI's
+suffixed variants on kernl (104 names → 227 matches), measured on the built
+artifact, invisible to unit tests.
 
 ### D14 — Build emits `iife` + `es`; UMD is forbidden
 The script-tag/bookmarklet artifact stays IIFE. Bundler users get a real ESM

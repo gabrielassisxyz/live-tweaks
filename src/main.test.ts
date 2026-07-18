@@ -165,7 +165,7 @@ describe("readAllowlist (D13 allowlist)", () => {
 });
 
 describe("panelTokens with an allowlist (D13 fallback)", () => {
-	it("keeps only tokens matching an allow prefix", () => {
+	it("a trailing-dash entry matches as a prefix", () => {
 		const tokens = [
 			baselineToken({ name: "--color-primary" }),
 			baselineToken({ name: "--radius-box", kind: "length" }),
@@ -175,13 +175,16 @@ describe("panelTokens with an allowlist (D13 fallback)", () => {
 		]);
 	});
 
-	it("matches an exact name, since a name is a prefix of itself", () => {
+	it("any other entry matches exactly — suffixed variants stay out", () => {
+		// The kernl lesson: daisyUI shadows app tokens and extends them with
+		// suffixes (--color-primary-content), so exact entries must not match
+		// as prefixes or the allowlist re-admits the noise it exists to block.
 		const tokens = [
 			baselineToken({ name: "--color-primary" }),
 			baselineToken({ name: "--color-primary-content" }),
 		];
 		expect(panelTokens(tokens, ["--color-primary"]).map((t) => t.name)).toEqual(
-			["--color-primary", "--color-primary-content"],
+			["--color-primary"],
 		);
 	});
 

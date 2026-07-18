@@ -269,9 +269,11 @@ whichever your app already uses.
 **Include an allowlist when the app uses a CSS framework** (Tailwind, daisyUI,
 UnoCSS — anything that defines its own `:root` custom properties). Frameworks
 can flood `:root` with hundreds of internal tokens that bury the app's real
-ones, and framework noise may share the app's own prefixes (daisyUI also
+ones, and framework noise may share the app's own naming (daisyUI also
 defines `--color-*`), so build the allowlist from `design.md`'s **exact token
 names** — the definitive inventory Step 3 just wrote — not from prefixes.
+Exact entries match exactly (only an entry ending in `-` acts as a prefix),
+so suffixed framework variants like `--color-primary-content` stay out.
 Print it as a pre-declared global the page sets *before* the panel script
 loads (for Option A a `<script>` block above the `src` tag; for Option B an
 assignment above the dynamic import):
