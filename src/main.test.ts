@@ -184,7 +184,7 @@ describe("panelTokens with an allowlist (D13 fallback)", () => {
 	});
 
 	it("any other entry matches exactly — suffixed variants stay out", () => {
-		// The kernl lesson: daisyUI shadows app tokens and extends them with
+		// The framework-noise lesson: daisyUI shadows app tokens and extends them with
 		// suffixes (--color-primary-content), so exact entries must not match
 		// as prefixes or the allowlist re-admits the noise it exists to block.
 		const tokens = [

@@ -70,7 +70,7 @@ Inject, below).
 
 The skill ships inside the npm package (`skills/tweaks`), so a project that
 depends on `live-tweaks` can link it pinned to the panel version it installed
-— for Claude Code:
+— for agents that read project-local skills from `.claude/skills`:
 
 ```sh
 mkdir -p .claude/skills

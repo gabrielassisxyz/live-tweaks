@@ -5,3 +5,9 @@ dist/
 
 # Local agent-layer config (machine-specific paths; recreate per machine)
 .ai-jail
+
+# Local planning notes
+BACKLOG.md
+IDEAS.md
+PLAN.md
+SCOPE.md

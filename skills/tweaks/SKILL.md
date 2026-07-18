@@ -126,13 +126,11 @@ recording — if its nearest enclosing block is one of:
   any other non-root selector)
 - a Tailwind v4 `@theme` at-rule, in any of its forms (`@theme`,
   `@theme inline`, `@theme reference`, ...) — even though it has no selector
-  at all (Step 3b). **This is the primary case, not an edge case**: kernl —
-  the project's first real target app — authors essentially all of its
-  design tokens (~60 of them) directly inside a Tailwind v4 `@theme` block in
-  `web/assets/css/tailwind.css`, with no `:root { ... }` wrapper in source.
-  Tailwind compiles `@theme` output to `:root` custom properties at
-  build/runtime, so treating it as anything but root-level would make setup
-  mode skip every one of kernl's tokens.
+  at all (Step 3b). This is common in Tailwind v4 setups: authored design
+  tokens can live directly inside a global `@theme` block, with no
+  `:root { ... }` wrapper in source. Tailwind compiles `@theme` output to
+  `:root` custom properties at build/runtime, so treating it as anything but
+  root-level would make setup mode skip every one of those tokens.
 
 at-rule wrappers (`@layer`, `@media`, `@supports`) around one of the
 selector-based cases above do not disqualify it either — e.g. a `@theme`
@@ -409,7 +407,7 @@ and writes source files, so its safety guards below are not optional.
 
 ### I1 — Parse the diff JSON, strictly
 
-The diff is exactly the contract shape (PLAN.md §4): a **flat map, no
+The diff is exactly the contract shape: a **flat map, no
 envelope**. Keys are custom-property names verbatim (leading `--`); each value
 is an object with a `before` and an `after` string:
 

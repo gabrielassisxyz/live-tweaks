@@ -45,15 +45,13 @@ export const LIVE_TWEAKS_VERSION = "1.0.0";
 // tokens, filtered from the panel regardless of how they classify.
 const NOISE_PREFIXES = ["--tw-", "--un-"];
 
-/** D13: true when a token name is known framework-internal noise. */
+/** True when a token name is known framework-internal noise. */
 export function isNoiseToken(name: string): boolean {
 	return NOISE_PREFIXES.some((prefix) => name.startsWith(prefix));
 }
 
 /**
- * D13 fallback (built after T15 failed the usability gate at kernl scale —
- * daisyUI floods `:root` with ~177 unprefixed tokens the denylist cannot
- * enumerate): an optional caller-provided allowlist of name prefixes.
+ * Optional caller-provided allowlist for large framework token sets.
  * Validates the raw `window.LiveTweaksConfig` value, since it arrives from
  * the host page untyped. Invalid shapes warn and fall back to no allowlist
  * (denylist behavior) rather than throwing — a config typo must never take
@@ -103,8 +101,7 @@ export function readAllowlist(config: unknown): string[] | undefined {
  * frameworks shadow app tokens and extend them with suffixes (daisyUI's
  * `--color-primary-content` next to an app's `--color-primary`), so
  * prefix-matching exact names would re-admit precisely the noise the
- * allowlist exists to block — measured on kernl: 104 exact names matched
- * 227 tokens under prefix semantics. */
+ * allowlist exists to block. */
 function matchesAllowlist(name: string, allow: readonly string[]): boolean {
 	return allow.some((entry) =>
 		entry.endsWith("-") ? name.startsWith(entry) : name === entry,
