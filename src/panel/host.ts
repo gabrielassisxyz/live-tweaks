@@ -45,7 +45,7 @@ export function createPanelHost(doc: Document = document): PanelHost {
 	const panel = doc.createElement("div");
 	Object.assign(panel.style, {
 		fontFamily: "system-ui, sans-serif",
-		width: "280px",
+		width: "380px",
 		boxShadow: "0 2px 12px rgba(0, 0, 0, 0.35)",
 		borderRadius: "6px",
 		overflow: "hidden",
@@ -59,13 +59,22 @@ export function createPanelHost(doc: Document = document): PanelHost {
 		cursor: "pointer",
 		userSelect: "none",
 		padding: "6px 10px",
-		background: "#1e1e2e",
+		background: "#17171a",
 		color: "#ffffff",
 		fontSize: "12px",
 		fontWeight: "600",
 	});
 
 	const body = doc.createElement("div");
+	// D13 (T15): an unbounded body grew to ~6754px on kernl's ~220 controls,
+	// overflowing the viewport ~7.5x with the fold headers off-screen. The
+	// panel is a fixed-position widget, so it scrolls internally: capped
+	// height, its own scrollbar, and no scroll chaining into the page.
+	Object.assign(body.style, {
+		maxHeight: "70vh",
+		overflowY: "auto",
+		overscrollBehavior: "contain",
+	});
 
 	let collapsed = false;
 	header.addEventListener("click", () => {
