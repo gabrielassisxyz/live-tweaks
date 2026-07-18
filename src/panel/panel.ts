@@ -10,6 +10,11 @@
 // gate + T9/T15/T16 human checkpoints), not unit tested.
 
 import { Pane } from "tweakpane";
+import { TWEAKPANE_CSS } from "./theme";
+
+// Lucide's rotate-cw glyph — the per-row reset affordance (design brief:
+// a reload icon on the value's right, not a full-width button row).
+const RESET_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>`;
 
 /** A token ready for a control — "other"-kind tokens never reach the panel
  * (PLAN D5); main.ts's `panelTokens()` filters them out upstream. */
@@ -82,6 +87,24 @@ function cloneTweakpaneStyles(shadowRoot: ShadowRoot): void {
 		}
 		shadowRoot.append(style.cloneNode(true));
 	}
+	ensureThemeLast(shadowRoot);
+}
+
+/** The theme retunes Tweakpane's own classes at equal specificity, so it
+ * only wins if its sheet comes *after* every cloned Tweakpane sheet.
+ * Appending an already-attached node moves it, so calling this after each
+ * clone pass keeps the theme last no matter how late a plugin sheet (e.g.
+ * the color popup's) shows up. */
+function ensureThemeLast(shadowRoot: ShadowRoot): void {
+	let theme = shadowRoot.querySelector<HTMLStyleElement>(
+		"style[data-lt-theme]",
+	);
+	if (!theme) {
+		theme = document.createElement("style");
+		theme.setAttribute("data-lt-theme", "");
+		theme.textContent = TWEAKPANE_CSS;
+	}
+	shadowRoot.append(theme);
 }
 
 function groupByKind(
@@ -164,9 +187,21 @@ export function createTweaksPanel(
 			attachFontDatalist(binding, contentMount, token.name);
 		}
 
-		folder
-			.addButton({ title: "Reset" })
-			.on("click", () => callbacks.onReset(token.name));
+		// Reset lives inside the binding's own row (design brief: an icon on
+		// the value's right, not a second full-width row per token). A silent
+		// degrade if Tweakpane's row shape ever changes: the control still
+		// works, the token just loses its inline reset.
+		const row: HTMLElement | null = binding.element;
+		if (row) {
+			const doc = row.ownerDocument;
+			const reset = doc.createElement("button");
+			reset.className = "lt-reset";
+			reset.title = `Reset ${token.name}`;
+			reset.setAttribute("aria-label", `Reset ${token.name}`);
+			reset.innerHTML = RESET_ICON_SVG;
+			reset.addEventListener("click", () => callbacks.onReset(token.name));
+			row.append(reset);
+		}
 	}
 
 	function render(tokens: readonly PanelToken[], skippedSummary: string): void {
@@ -176,25 +211,36 @@ export function createTweaksPanel(
 
 		const doc = contentMount.ownerDocument;
 		const skipInfo = doc.createElement("div");
-		Object.assign(skipInfo.style, {
-			fontSize: "11px",
-			color: "#888888",
-			padding: "4px 8px",
-		});
+		skipInfo.className = "lt-summary";
 		skipInfo.textContent = skippedSummary;
 		contentMount.append(skipInfo);
+
+		// The three panel-wide actions are plain buttons in chrome this module
+		// owns — one row, Save as the primary — instead of stacked Tweakpane
+		// button blades.
+		const toolbar = doc.createElement("div");
+		toolbar.className = "lt-toolbar";
+		const addAction = (
+			label: string,
+			primary: boolean,
+			onClick: () => void,
+		) => {
+			const button = doc.createElement("button");
+			button.className = primary ? "lt-btn lt-btn-primary" : "lt-btn";
+			button.textContent = label;
+			button.addEventListener("click", onClick);
+			toolbar.append(button);
+		};
+		addAction("Save", true, () => callbacks.onSave());
+		addAction("Rescan", false, () => callbacks.onRescan());
+		addAction("Reset all", false, () => callbacks.onResetAll());
+		contentMount.append(toolbar);
 
 		const paneMount = doc.createElement("div");
 		contentMount.append(paneMount);
 
 		pane = new Pane({ container: paneMount });
 		cloneTweakpaneStyles(shadowRoot);
-
-		pane.addButton({ title: "Save" }).on("click", () => callbacks.onSave());
-		pane.addButton({ title: "Rescan" }).on("click", () => callbacks.onRescan());
-		pane
-			.addButton({ title: "Reset all" })
-			.on("click", () => callbacks.onResetAll());
 
 		const byKind = groupByKind(tokens);
 		for (const kind of KIND_ORDER) {
