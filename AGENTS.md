@@ -96,6 +96,11 @@
   spaces — run `npm run format`.
 - `.ai-jail` is gitignored (machine-specific absolute paths); recreate it per machine
   from the house default in `project-bootstrap`.
+- `package-lock.json` is tab-indented on purpose (2026-07-18): npm inherits the indent
+  style of `package.json` (tabs, via Biome) when rewriting the lockfile, so a 2-space
+  lockfile made every plain `npm install` produce a full-file whitespace diff. The
+  regenerated tab version is a stable fixed point — repeat installs are churn-free.
+  Don't "fix" its indentation; Biome ignores lockfiles (protected files).
 - T2 jsdom computed-style probe (2026-07-17): jsdom's `getComputedStyle(documentElement)`
   **does** carry plain root custom-property values and **does** enumerate their names, but
   **does not** resolve `var()` chains (returns the literal `var(...)`) nor canonicalize
