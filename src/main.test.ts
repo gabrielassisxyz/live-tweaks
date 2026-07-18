@@ -5,13 +5,14 @@
 // DOM. The DOM-coupled half (`init`, idempotency, `window.LiveTweaks`) is
 // covered in main.dom.test.ts.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
 	buildDumpResult,
 	formatSkipped,
 	isNoiseToken,
 	LIVE_TWEAKS_VERSION,
 	panelTokens,
+	readAllowlist,
 } from "./main";
 import type { BaselineToken } from "./state";
 
@@ -115,6 +116,123 @@ describe("buildDumpResult", () => {
 	});
 });
 
+describe("readAllowlist (D13 allowlist)", () => {
+	it("returns undefined when there is no config", () => {
+		expect(readAllowlist(undefined)).toBeUndefined();
+		expect(readAllowlist(null)).toBeUndefined();
+	});
+
+	it("returns the allow entries", () => {
+		expect(readAllowlist({ allow: ["--color-", "--font-body"] })).toEqual([
+			"--color-",
+			"--font-body",
+		]);
+	});
+
+	it("returns undefined when allow is missing", () => {
+		expect(readAllowlist({})).toBeUndefined();
+	});
+
+	it("warns and returns undefined when the config is not an object", () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+		expect(readAllowlist("--color-")).toBeUndefined();
+		expect(warn).toHaveBeenCalledOnce();
+		warn.mockRestore();
+	});
+
+	it("warns and returns undefined when allow is not an array", () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+		expect(readAllowlist({ allow: "--color-" })).toBeUndefined();
+		expect(warn).toHaveBeenCalledOnce();
+		warn.mockRestore();
+	});
+
+	it("drops entries that are not custom-property prefixes, keeping the rest", () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+		expect(readAllowlist({ allow: ["--color-", 5, "color"] })).toEqual([
+			"--color-",
+		]);
+		expect(warn).toHaveBeenCalledOnce();
+		warn.mockRestore();
+	});
+
+	it("treats an empty (or fully-invalid) allow as no allowlist", () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+		expect(readAllowlist({ allow: [] })).toBeUndefined();
+		expect(readAllowlist({ allow: [42] })).toBeUndefined();
+		warn.mockRestore();
+	});
+});
+
+describe("panelTokens with an allowlist (D13 fallback)", () => {
+	it("keeps only tokens matching an allow prefix", () => {
+		const tokens = [
+			baselineToken({ name: "--color-primary" }),
+			baselineToken({ name: "--radius-box", kind: "length" }),
+		];
+		expect(panelTokens(tokens, ["--color-"]).map((t) => t.name)).toEqual([
+			"--color-primary",
+		]);
+	});
+
+	it("matches an exact name, since a name is a prefix of itself", () => {
+		const tokens = [
+			baselineToken({ name: "--color-primary" }),
+			baselineToken({ name: "--color-primary-content" }),
+		];
+		expect(panelTokens(tokens, ["--color-primary"]).map((t) => t.name)).toEqual(
+			["--color-primary", "--color-primary-content"],
+		);
+	});
+
+	it("supersedes the noise denylist — an explicit allow wins", () => {
+		const tokens = [
+			baselineToken({ name: "--tw-gradient-from", kind: "color" }),
+		];
+		expect(panelTokens(tokens, ["--tw-"]).map((t) => t.name)).toEqual([
+			"--tw-gradient-from",
+		]);
+	});
+
+	it("still drops non-root and unclassified tokens", () => {
+		const tokens = [
+			baselineToken({ name: "--color-scoped", editable: false }),
+			baselineToken({ name: "--color-odd", kind: "other" }),
+		];
+		expect(panelTokens(tokens, ["--color-"])).toEqual([]);
+	});
+});
+
+describe("buildDumpResult with an allowlist (D13 fallback)", () => {
+	it("counts root tokens outside the allowlist under skipped.notAllowed", () => {
+		const tokens = [
+			baselineToken({ name: "--color-primary" }),
+			baselineToken({ name: "--radius-box", kind: "length" }),
+			baselineToken({ name: "--size-field", kind: "length" }),
+			baselineToken({ name: "--card-radius", editable: false }),
+		];
+		const skipped = buildDumpResult(tokens, 0, ["--color-"]).skipped;
+		expect(skipped.notAllowed).toBe(2);
+		expect(skipped.nonRoot).toBe(1);
+	});
+
+	it("reports zero noise and counts unclassified only among allowed tokens", () => {
+		const tokens = [
+			baselineToken({ name: "--tw-gradient-from", kind: "color" }),
+			baselineToken({ name: "--color-odd", kind: "other" }),
+			baselineToken({ name: "--radius-odd", kind: "other" }),
+		];
+		const skipped = buildDumpResult(tokens, 0, ["--color-"]).skipped;
+		expect(skipped.noise).toBe(0);
+		expect(skipped.unclassified).toBe(1); // --color-odd; --radius-odd is notAllowed
+		expect(skipped.notAllowed).toBe(2);
+	});
+
+	it("leaves notAllowed undefined when no allowlist is configured", () => {
+		expect(buildDumpResult([], 0).skipped.notAllowed).toBeUndefined();
+	});
+});
+
 describe("formatSkipped", () => {
 	it("formats the three always-present counters", () => {
 		expect(
@@ -143,5 +261,33 @@ describe("formatSkipped", () => {
 			unreadableSheets: 2,
 		});
 		expect(some).toContain("2 unreadable sheets");
+	});
+
+	it("appends the outside-allowlist counter only when present and non-zero", () => {
+		const absent = formatSkipped({
+			nonRoot: 0,
+			noise: 0,
+			unclassified: 0,
+			unreadableSheets: 0,
+		});
+		expect(absent).not.toContain("allowlist");
+
+		const zero = formatSkipped({
+			nonRoot: 0,
+			noise: 0,
+			unclassified: 0,
+			notAllowed: 0,
+			unreadableSheets: 0,
+		});
+		expect(zero).not.toContain("allowlist");
+
+		const some = formatSkipped({
+			nonRoot: 1,
+			noise: 0,
+			unclassified: 0,
+			notAllowed: 173,
+			unreadableSheets: 0,
+		});
+		expect(some).toContain("173 outside allowlist");
 	});
 });

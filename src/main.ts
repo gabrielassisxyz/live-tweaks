@@ -47,11 +47,60 @@ export function isNoiseToken(name: string): boolean {
 	return NOISE_PREFIXES.some((prefix) => name.startsWith(prefix));
 }
 
-/** Tokens worth a control: editable (D3), classified (D5), not noise (D13). */
-export function panelTokens(tokens: readonly BaselineToken[]): BaselineToken[] {
+/**
+ * D13 fallback (built after T15 failed the usability gate at kernl scale —
+ * daisyUI floods `:root` with ~177 unprefixed tokens the denylist cannot
+ * enumerate): an optional caller-provided allowlist of name prefixes.
+ * Validates the raw `window.LiveTweaksConfig` value, since it arrives from
+ * the host page untyped. Invalid shapes warn and fall back to no allowlist
+ * (denylist behavior) rather than throwing — a config typo must never take
+ * the panel down. An exact token name works as-is: a name is a prefix of
+ * itself.
+ */
+export function readAllowlist(config: unknown): string[] | undefined {
+	if (config === undefined || config === null) return undefined;
+	if (typeof config !== "object") {
+		console.warn("live-tweaks: ignoring LiveTweaksConfig — expected an object");
+		return undefined;
+	}
+	const allow = (config as { allow?: unknown }).allow;
+	if (allow === undefined) return undefined;
+	if (!Array.isArray(allow)) {
+		console.warn(
+			"live-tweaks: ignoring LiveTweaksConfig.allow — expected an array of custom-property name prefixes",
+		);
+		return undefined;
+	}
+	const valid = allow.filter(
+		(entry): entry is string =>
+			typeof entry === "string" && entry.startsWith("--"),
+	);
+	if (valid.length < allow.length) {
+		console.warn(
+			`live-tweaks: dropped ${allow.length - valid.length} LiveTweaksConfig.allow entries — each must be a string starting with "--"`,
+		);
+	}
+	if (valid.length === 0) return undefined;
+	return valid;
+}
+
+function matchesAllowlist(name: string, allow: readonly string[]): boolean {
+	return allow.some((prefix) => name.startsWith(prefix));
+}
+
+/** Tokens worth a control: editable (D3), classified (D5), and past the D13
+ * noise filter — the allowlist when one is configured (it supersedes the
+ * denylist: an explicit allow is better information than a built-in guess),
+ * the `--tw-`/`--un-` denylist otherwise. */
+export function panelTokens(
+	tokens: readonly BaselineToken[],
+	allow?: readonly string[],
+): BaselineToken[] {
 	return tokens.filter(
 		(token) =>
-			token.editable && token.kind !== "other" && !isNoiseToken(token.name),
+			token.editable &&
+			token.kind !== "other" &&
+			(allow ? matchesAllowlist(token.name, allow) : !isNoiseToken(token.name)),
 	);
 }
 
@@ -63,10 +112,15 @@ export interface DumpToken {
 export interface DumpSkipped {
 	/** Tokens with no root-level definition (PLAN D3) — component-scoped noise. */
 	readonly nonRoot: number;
-	/** Root tokens matching the D13 denylist (`--tw-`, `--un-`). */
+	/** Root tokens matching the D13 denylist (`--tw-`, `--un-`). Always 0 when
+	 * an allowlist is active — the allowlist supersedes the denylist. */
 	readonly noise: number;
-	/** Root, non-noise tokens that classify as `other` (PLAN D5). */
+	/** Root tokens (allowed ones, when an allowlist is active) that classify
+	 * as `other` (PLAN D5). */
 	readonly unclassified: number;
+	/** Root tokens outside the configured allowlist (D13 fallback). Only
+	 * present when an allowlist is active. */
+	readonly notAllowed?: number;
 	/** Cross-origin stylesheets the walk could not read (PLAN D2). */
 	readonly unreadableSheets: number;
 }
@@ -79,14 +133,37 @@ export interface DumpResult {
 	readonly skipped: DumpSkipped;
 }
 
-/** Pure summary behind `dump()`/`rescan()` (D2, D3, D5, D13 counters). */
+/** Pure summary behind `dump()`/`rescan()` (D2, D3, D5, D13 counters). With
+ * an allowlist the noise counter is retired (always 0) and `notAllowed`
+ * appears instead — the two never overlap, so the counters still partition
+ * the skipped root tokens. */
 export function buildDumpResult(
 	tokens: readonly BaselineToken[],
 	unreadableSheets: number,
+	allow?: readonly string[],
 ): DumpResult {
 	const rootTokens = tokens.filter((token) => token.editable);
+	const dumpTokens = rootTokens.map((token) => ({
+		name: token.name,
+		kind: token.kind,
+	}));
+	if (allow) {
+		const allowed = rootTokens.filter((token) =>
+			matchesAllowlist(token.name, allow),
+		);
+		return {
+			tokens: dumpTokens,
+			skipped: {
+				nonRoot: tokens.length - rootTokens.length,
+				noise: 0,
+				unclassified: allowed.filter((token) => token.kind === "other").length,
+				notAllowed: rootTokens.length - allowed.length,
+				unreadableSheets,
+			},
+		};
+	}
 	return {
-		tokens: rootTokens.map((token) => ({ name: token.name, kind: token.kind })),
+		tokens: dumpTokens,
 		skipped: {
 			nonRoot: tokens.length - rootTokens.length,
 			noise: rootTokens.filter((token) => isNoiseToken(token.name)).length,
@@ -106,6 +183,9 @@ export function formatSkipped(skipped: DumpSkipped): string {
 		`${skipped.unclassified} unclassified`,
 		`${skipped.noise} noise`,
 	];
+	if (skipped.notAllowed !== undefined && skipped.notAllowed > 0) {
+		parts.push(`${skipped.notAllowed} outside allowlist`);
+	}
 	if (skipped.unreadableSheets > 0) {
 		parts.push(`${skipped.unreadableSheets} unreadable sheets`);
 	}
@@ -133,8 +213,11 @@ function toPanelToken(token: BaselineToken, value: string): PanelToken {
  * each with its *live* value (a user override if one exists, else the
  * baseline's resolved value) — so a rescan or a fresh mount always shows
  * what's actually applied to the page, not just the baseline. */
-function buildPanelTokens(session: TweakSession): PanelToken[] {
-	return panelTokens(session.tokens()).map((token) =>
+function buildPanelTokens(
+	session: TweakSession,
+	allow?: readonly string[],
+): PanelToken[] {
+	return panelTokens(session.tokens(), allow).map((token) =>
 		toPanelToken(token, session.currentValue(token.name) ?? token.activeValue),
 	);
 }
@@ -167,6 +250,13 @@ export interface LiveTweaksApi {
  * tests, a real `Window` satisfies it in production, no cast either way. */
 export interface LiveTweaksWindow {
 	LiveTweaks?: LiveTweaksApi;
+	/** Optional pre-declared config, set by the page BEFORE the script loads
+	 * (the analytics-snippet pattern — the one shape that works identically
+	 * for the script-tag and bundler injection paths, since the IIFE
+	 * auto-mounts and there is no init call to pass options to). Typed
+	 * `unknown` on purpose: it crosses from the untyped host page and is
+	 * validated by `readAllowlist()`. */
+	LiveTweaksConfig?: unknown;
 }
 
 interface Scan {
@@ -177,14 +267,14 @@ interface Scan {
 /** Walks the document, builds a fresh session, and computes the dump summary
  * (D2/D3/D5 counters) in one pass — see the file header for why this doesn't
  * just call `createTweakSession()`. */
-function scan(doc: Document): Scan {
+function scan(doc: Document, allow?: readonly string[]): Scan {
 	const resolved = resolveDocumentTokens(doc);
 	const baseline = buildBaseline(resolved.tokens);
 	const snapshot = snapshotInlineCustomProperties(doc.documentElement.style);
 	const session = new TweakSession(baseline, snapshot);
 	return {
 		session,
-		dump: buildDumpResult(baseline, resolved.unreadableSheets),
+		dump: buildDumpResult(baseline, resolved.unreadableSheets, allow),
 	};
 }
 
@@ -210,7 +300,10 @@ export function init(
 ): LiveTweaksApi {
 	if (win.LiveTweaks) return win.LiveTweaks;
 
-	let current = scan(doc);
+	// Read once at init: the config is a page-load-time declaration, not a
+	// live channel — changing it after injection requires a reload.
+	const allow = readAllowlist(win.LiveTweaksConfig);
+	let current = scan(doc, allow);
 	logSkipped(current.dump.skipped);
 
 	const host = panelFactory.createHost(doc);
@@ -250,7 +343,7 @@ export function init(
 
 	function renderPanel(): void {
 		panel.render(
-			buildPanelTokens(current.session),
+			buildPanelTokens(current.session, allow),
 			formatSkipped(current.dump.skipped),
 		);
 	}
@@ -271,7 +364,7 @@ export function init(
 	 * now, which is exactly what they're for.
 	 */
 	function rescan(): DumpResult {
-		const fresh = scan(doc);
+		const fresh = scan(doc, allow);
 		current.session.mergeNewTokens(fresh.session);
 		current = { session: current.session, dump: fresh.dump };
 		logSkipped(current.dump.skipped);

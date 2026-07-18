@@ -13,7 +13,7 @@
 // setValue() calls made on the panel — which is ordinary glue code, not
 // Tweakpane-coupled, and stays TDD per this file's own module (main.ts).
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { init, type LiveTweaksWindow, type PanelFactory } from "./main";
 import type { PanelHost } from "./panel/host";
 import type {
@@ -360,5 +360,56 @@ describe("rescan() merges instead of replacing (review-gate regression fix)", ()
 		expect(latestRender?.tokens.map((t) => t.name)).toEqual(
 			expect.arrayContaining(["--spacing-lg", "--radius-md"]),
 		);
+	});
+});
+
+describe("init() with a pre-declared LiveTweaksConfig (D13 allowlist)", () => {
+	// Fixtures use length tokens: jsdom has no CSS.supports, so a color value
+	// classifies as "other" here (the recorded classify.ts seam) — allowlist
+	// behavior is kind-independent, so length tokens exercise it fully.
+	it("renders only allowlisted tokens and reports the rest in the summary", () => {
+		mountStyle(":root { --spacing-lg: 24px; --radius-box: 8px; }");
+		const win = freshWindow();
+		win.LiveTweaksConfig = { allow: ["--spacing-"] };
+		const fake = fakePanelFactory();
+
+		init(document, win, fake.factory);
+
+		const first = fake.renders[0];
+		expect(first?.tokens.map((t) => t.name)).toEqual(["--spacing-lg"]);
+		expect(first?.summary).toContain("1 outside allowlist");
+	});
+
+	it("ignores an invalid config and renders as if there were none", () => {
+		mountStyle(":root { --spacing-lg: 24px; --radius-box: 8px; }");
+		const win = freshWindow();
+		win.LiveTweaksConfig = { allow: "--spacing-" };
+		const fake = fakePanelFactory();
+
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+		init(document, win, fake.factory);
+		warn.mockRestore();
+
+		expect(fake.renders[0]?.tokens.map((t) => t.name)).toEqual(
+			expect.arrayContaining(["--spacing-lg", "--radius-box"]),
+		);
+	});
+
+	it("rescan() keeps honoring the allowlist for newly-found tokens", () => {
+		mountStyle(":root { --spacing-lg: 24px; }");
+		const win = freshWindow();
+		win.LiveTweaksConfig = { allow: ["--spacing-"] };
+		const fake = fakePanelFactory();
+		init(document, win, fake.factory);
+
+		document.head.innerHTML +=
+			"<style>:root { --spacing-gap: 8px; --size-field: 2rem; }</style>";
+		fake.callbacks?.onRescan();
+
+		const latest = fake.renders.at(-1);
+		expect(latest?.tokens.map((t) => t.name)).toEqual([
+			"--spacing-lg",
+			"--spacing-gap",
+		]);
 	});
 });
