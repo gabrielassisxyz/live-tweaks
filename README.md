@@ -139,9 +139,11 @@ config warns on the console and is ignored — it never blocks the panel.
 
 The panel renders tokens in allow-entry order, so put the important ones first
 — main surfaces, then text colors, then brand accents (`/tweaks` setup writes
-the list in that order for you). In Chromium, the toolbar's pipette button picks
-any pixel on the page and scrolls to (and highlights) the token(s) currently
-painting that color.
+the list in that order for you). The toolbar's pipette button finds the token
+behind any color on the page: pixel-perfect via the EyeDropper API where the
+browser has it, and by clicking an element elsewhere (Firefox, Brave) — the
+element's background, or its text color when the background matches nothing.
+The panel scrolls to and highlights every token currently painting that color.
 
 ## Limitations
 

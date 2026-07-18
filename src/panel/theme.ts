@@ -155,6 +155,10 @@ export const TWEAKPANE_CSS = /* css */ `
 	.lt-btn-icon:hover {
 		color: var(--lt-text);
 	}
+	.lt-btn-icon-active {
+		color: var(--lt-accent);
+		border-color: var(--lt-accent);
+	}
 	.lt-btn-icon svg {
 		width: 15px;
 		height: 15px;

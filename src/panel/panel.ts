@@ -21,10 +21,67 @@ const RESET_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColo
 // token(s) currently painting that color.
 const PIPETTE_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m2 22 1-1h3l9-9"/><path d="M3 21v-3l9-9"/><path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z"/></svg>`;
 
-/** The EyeDropper API (Chromium-only as of 2026) — typed locally because
- * TypeScript's dom lib does not ship it. */
+/** The EyeDropper API — typed locally because TypeScript's dom lib does not
+ * ship it. Chromium-only, and privacy-focused Chromium forks (Brave) remove
+ * it outright, so the pipette also carries an element-pick fallback. */
 interface EyeDropperLike {
 	open(): Promise<{ sRGBHex: string }>;
+}
+
+/** Fallback pick mode for browsers without EyeDropper: crosshair cursor,
+ * one click anywhere on the page, resolve to that element's candidate
+ * colors — computed background (walking up past transparent ancestors),
+ * then text color. Escape or a click on the panel itself cancels. Not
+ * pixel-perfect like the real eyedropper, but flat surfaces — the main
+ * use case — resolve identically. */
+function pickElementColors(doc: Document): Promise<string[] | undefined> {
+	return new Promise((resolve) => {
+		const crosshair = doc.createElement("style");
+		crosshair.textContent = "* { cursor: crosshair !important; }";
+		doc.head.append(crosshair);
+		const cleanup = () => {
+			crosshair.remove();
+			doc.removeEventListener("click", onClick, true);
+			doc.removeEventListener("keydown", onKey, true);
+		};
+		const onKey = (event: KeyboardEvent) => {
+			if (event.key === "Escape") {
+				cleanup();
+				resolve(undefined);
+			}
+		};
+		const onClick = (event: MouseEvent) => {
+			event.preventDefault();
+			event.stopPropagation();
+			cleanup();
+			const target = event.target as Element | null;
+			if (!target || target.closest("#live-tweaks-host")) {
+				resolve(undefined); // clicking the panel is a cancel, not a pick
+				return;
+			}
+			const view = doc.defaultView;
+			if (!view) {
+				resolve(undefined);
+				return;
+			}
+			const candidates: string[] = [];
+			for (
+				let el: Element | null = target;
+				el && el !== doc.documentElement;
+				el = el.parentElement
+			) {
+				const bg = view.getComputedStyle(el).backgroundColor;
+				if (bg && bg !== "transparent" && !/rgba\(.+,\s*0\)$/.test(bg)) {
+					candidates.push(bg);
+					break;
+				}
+			}
+			candidates.push(view.getComputedStyle(target).color);
+			resolve(candidates);
+		};
+		doc.addEventListener("click", onClick, true);
+		doc.addEventListener("keydown", onKey, true);
+	});
 }
 
 /** Normalizes an arbitrary CSS color (hex, oklch, named…) to the computed
@@ -234,11 +291,13 @@ export function createTweaksPanel(
 		}
 	}
 
-	/** Scrolls to and flashes every row whose current color equals the picked
-	 * pixel; a transient summary-line message when nothing matches. */
+	/** Scrolls to and flashes every row whose current color equals the first
+	 * matching candidate (eyedropper mode passes one pixel color; element
+	 * mode passes background-then-text); a transient summary-line message
+	 * when nothing matches. */
 	function locateColor(
 		doc: Document,
-		picked: string,
+		candidates: readonly string[],
 		summaryEl: HTMLElement,
 		summaryText: string,
 	): void {
@@ -246,9 +305,12 @@ export function createTweaksPanel(
 			name,
 			resolvedValue: normalizeCssColor(doc, control.params.value),
 		}));
-		const matches = findColorMatches(picked, resolved);
+		const matches =
+			candidates
+				.map((candidate) => findColorMatches(candidate, resolved))
+				.find((found) => found.length > 0) ?? [];
 		if (matches.length === 0) {
-			summaryEl.textContent = `No token matches ${picked}`;
+			summaryEl.textContent = "No token matches that color";
 			setTimeout(() => {
 				summaryEl.textContent = summaryText;
 			}, 2200);
@@ -272,8 +334,9 @@ export function createTweaksPanel(
 		});
 	}
 
-	/** Chromium-only by feature detection: no EyeDropper constructor, no
-	 * button — the panel simply lacks the affordance elsewhere. */
+	/** The pipette renders everywhere: pixel-perfect via the EyeDropper API
+	 * where it exists, the element-pick fallback otherwise (Firefox, and
+	 * Brave, which removes the API). */
 	function addPipetteButton(
 		doc: Document,
 		toolbar: HTMLElement,
@@ -283,7 +346,6 @@ export function createTweaksPanel(
 		const EyeDropperCtor = (
 			globalThis as { EyeDropper?: new () => EyeDropperLike }
 		).EyeDropper;
-		if (!EyeDropperCtor) return;
 		const button = doc.createElement("button");
 		button.className = "lt-btn lt-btn-icon";
 		button.title = "Pick a color on the page to find its token";
@@ -293,13 +355,21 @@ export function createTweaksPanel(
 		);
 		button.innerHTML = PIPETTE_ICON_SVG;
 		button.addEventListener("click", async () => {
-			let picked: string;
-			try {
-				picked = (await new EyeDropperCtor().open()).sRGBHex;
-			} catch {
-				return; // the user dismissed the eyedropper
+			let candidates: readonly string[];
+			if (EyeDropperCtor) {
+				try {
+					candidates = [(await new EyeDropperCtor().open()).sRGBHex];
+				} catch {
+					return; // the user dismissed the eyedropper
+				}
+			} else {
+				button.classList.add("lt-btn-icon-active");
+				const picked = await pickElementColors(doc);
+				button.classList.remove("lt-btn-icon-active");
+				if (!picked) return; // canceled
+				candidates = picked;
 			}
-			locateColor(doc, picked, summaryEl, summaryText);
+			locateColor(doc, candidates, summaryEl, summaryText);
 		});
 		toolbar.append(button);
 	}
