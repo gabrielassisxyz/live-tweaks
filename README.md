@@ -54,7 +54,8 @@ The usual flow:
 
 ## Install
 
-Two independent installs — the panel is an npm package, the skill is a symlink.
+Two installs — the panel is an npm package, the skill installs with the
+[skills CLI](https://github.com/vercel-labs/skills).
 
 **The panel:**
 
@@ -68,13 +69,23 @@ Inject, below).
 **The skill:**
 
 ```sh
-git clone https://github.com/gabrielassisxyz/live-tweaks.git
-ln -s "$(pwd)/live-tweaks/skills/tweaks" ~/.claude/skills/tweaks
+npx skills add gabrielassisxyz/live-tweaks
 ```
 
-The skill lives in this repository, not in the npm package — symlinking it into
-`~/.claude/skills/tweaks` makes `/tweaks` available in any repo you invoke it from,
-including apps that only depend on `live-tweaks` for the panel.
+The wizard detects your installed agents and asks where to install (project or
+global, symlink or copy). Non-interactive, e.g. for Claude Code globally:
+`npx skills add gabrielassisxyz/live-tweaks -a claude-code -g -y`.
+
+The skill also ships inside the npm package, so you can install it pinned to
+the panel version you depend on:
+
+```sh
+npx skills add ./node_modules/live-tweaks
+```
+
+Manual fallback (no skills CLI): symlink `skills/tweaks` from a clone of this
+repository into your agent's skills directory, e.g.
+`ln -s "$(pwd)/live-tweaks/skills/tweaks" ~/.claude/skills/tweaks`.
 
 ## Inject
 
