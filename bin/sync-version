@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Rewrites src/main.ts's LIVE_TWEAKS_VERSION from package.json and stages it.
+#
+# Wired to the npm `version` lifecycle script, so `npm version <bump>` bumps both the
+# manifest and the constant the panel reports at runtime, in the same commit. Without
+# this the two drift silently and a release ships a panel announcing the previous
+# version. `src/main.version.test.ts` is the backstop that proves they match.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+version="$(node -p 'require("./package.json").version')"
+file="src/main.ts"
+
+node - "$version" "$file" <<'NODE'
+const [, , version, file] = process.argv
+const fs = require("node:fs")
+const src = fs.readFileSync(file, "utf8")
+const pattern = /^export const LIVE_TWEAKS_VERSION = "[^"]*";$/m
+if (!pattern.test(src)) {
+	console.error(`sync-version: no LIVE_TWEAKS_VERSION declaration found in ${file}`)
+	process.exit(1)
+}
+fs.writeFileSync(file, src.replace(pattern, `export const LIVE_TWEAKS_VERSION = "${version}";`))
+NODE
+
+git add "$file"
+echo "sync-version: LIVE_TWEAKS_VERSION -> $version"

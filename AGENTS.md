@@ -63,6 +63,14 @@
   (2) then on npmjs.com → package → Settings → Trusted Publisher → GitHub Actions with
   org `gabrielassisxyz`, repo `live-tweaks`, workflow `release.yml`, allowed action
   `npm publish`. Every later release goes through the workflow.
+- The version lives in **two** places — `package.json` and `LIVE_TWEAKS_VERSION` in
+  `src/main.ts` (what the panel reports at runtime). `npm version` runs `bin/sync-version`
+  via the npm `version` lifecycle hook, which rewrites the constant and stages it into the
+  same commit; `src/main.version.test.ts` fails `bin/ci` if they ever drift. Don't bump
+  either by hand.
+- `npm run build` emits the bundles **and** `dist/*.d.ts` (`tsconfig.build.json`,
+  declaration-only, tests excluded) — `exports.types` promises them, so a TS consumer
+  doing `import { LiveTweaksApi } from "live-tweaks"` type-checks.
 
 ## Security (habit, not a phase)
 
