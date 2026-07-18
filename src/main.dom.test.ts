@@ -412,4 +412,18 @@ describe("init() with a pre-declared LiveTweaksConfig (D13 allowlist)", () => {
 			"--spacing-gap",
 		]);
 	});
+
+	it("reads the config once at init — later mutations never apply (read-once contract)", () => {
+		mountStyle(":root { --spacing-lg: 24px; --radius-box: 8px; }");
+		const win = freshWindow();
+		win.LiveTweaksConfig = { allow: ["--spacing-"] };
+		const fake = fakePanelFactory();
+		init(document, win, fake.factory);
+
+		win.LiveTweaksConfig = { allow: ["--radius-"] };
+		fake.callbacks?.onRescan();
+
+		const latest = fake.renders.at(-1);
+		expect(latest?.tokens.map((t) => t.name)).toEqual(["--spacing-lg"]);
+	});
 });

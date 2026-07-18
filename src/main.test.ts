@@ -156,10 +156,18 @@ describe("readAllowlist (D13 allowlist)", () => {
 		warn.mockRestore();
 	});
 
-	it("treats an empty (or fully-invalid) allow as no allowlist", () => {
+	it("warns and treats an empty (or fully-invalid) allow as no allowlist", () => {
 		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 		expect(readAllowlist({ allow: [] })).toBeUndefined();
+		expect(warn).toHaveBeenCalledOnce();
 		expect(readAllowlist({ allow: [42] })).toBeUndefined();
+		warn.mockRestore();
+	});
+
+	it("warns and returns undefined when the config itself is an array (shape typo)", () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+		expect(readAllowlist(["--color-"])).toBeUndefined();
+		expect(warn).toHaveBeenCalledOnce();
 		warn.mockRestore();
 	});
 });
@@ -292,5 +300,16 @@ describe("formatSkipped", () => {
 			unreadableSheets: 0,
 		});
 		expect(some).toContain("173 outside allowlist");
+	});
+
+	it("drops the retired noise counter when an allowlist is active", () => {
+		const line = formatSkipped({
+			nonRoot: 1,
+			noise: 0,
+			unclassified: 0,
+			notAllowed: 5,
+			unreadableSheets: 0,
+		});
+		expect(line).not.toContain("noise");
 	});
 });

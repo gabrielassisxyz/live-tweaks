@@ -46,6 +46,8 @@ export function createPanelHost(doc: Document = document): PanelHost {
 	Object.assign(panel.style, {
 		fontFamily: "system-ui, sans-serif",
 		width: "380px",
+		maxWidth: "calc(100vw - 32px)", // never overflow a narrow viewport
+
 		boxShadow: "0 2px 12px rgba(0, 0, 0, 0.35)",
 		borderRadius: "6px",
 		overflow: "hidden",

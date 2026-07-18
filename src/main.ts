@@ -58,8 +58,12 @@ export function isNoiseToken(name: string): boolean {
  */
 export function readAllowlist(config: unknown): string[] | undefined {
 	if (config === undefined || config === null) return undefined;
-	if (typeof config !== "object") {
-		console.warn("live-tweaks: ignoring LiveTweaksConfig — expected an object");
+	// An array is a plausible typo for the intended shape, so it gets the same
+	// explicit warning instead of falling through as "object with no allow".
+	if (typeof config !== "object" || Array.isArray(config)) {
+		console.warn(
+			"live-tweaks: ignoring LiveTweaksConfig — expected an object like { allow: [...] }",
+		);
 		return undefined;
 	}
 	const allow = (config as { allow?: unknown }).allow;
@@ -79,7 +83,15 @@ export function readAllowlist(config: unknown): string[] | undefined {
 			`live-tweaks: dropped ${allow.length - valid.length} LiveTweaksConfig.allow entries — each must be a string starting with "--"`,
 		);
 	}
-	if (valid.length === 0) return undefined;
+	if (valid.length === 0) {
+		// A declared-but-empty allowlist is a mistake, not a request to show
+		// nothing: falling back silently would flood the panel with zero
+		// feedback about why.
+		console.warn(
+			"live-tweaks: LiveTweaksConfig.allow has no valid entries — falling back to the default noise filter",
+		);
+		return undefined;
+	}
 	return valid;
 }
 
@@ -189,8 +201,12 @@ export function formatSkipped(skipped: DumpSkipped): string {
 	const parts = [
 		`${skipped.nonRoot} non-root`,
 		`${skipped.unclassified} unclassified`,
-		`${skipped.noise} noise`,
 	];
+	// The noise counter is retired under an allowlist (always 0) — printing
+	// it would only make the summary read like the denylist still applies.
+	if (skipped.notAllowed === undefined) {
+		parts.push(`${skipped.noise} noise`);
+	}
 	if (skipped.notAllowed !== undefined && skipped.notAllowed > 0) {
 		parts.push(`${skipped.notAllowed} outside allowlist`);
 	}
