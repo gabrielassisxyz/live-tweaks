@@ -90,6 +90,12 @@
 
 ## Common hurdles (append as discovered)
 
+- The `tweaks` skill writes its token inventory to **`.live-tweaks/design-tokens.md`** in
+  the target app, never a root-level `design.md` (2026-07-18). The old name collided with
+  the hand-written `DESIGN.md` many repos keep, and agents conflated the two — a generated
+  cache read as authored design doctrine. Namespace directory, explicit filename, and it
+  is meant to be **committed**, not gitignored (deterministic from committed CSS; its diff
+  is real review signal).
 - `bin/ci` runs `npm ci` (not `npm install`) — it wipes and reinstalls `node_modules`
   from the lockfile every run. Slower locally, but identical to CI by design.
 - Biome formats with **tabs** (its default, kept on purpose); don't hand-format with
