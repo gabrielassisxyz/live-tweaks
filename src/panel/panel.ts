@@ -10,11 +10,36 @@
 // gate + T9/T15/T16 human checkpoints), not unit tested.
 
 import { Pane } from "tweakpane";
+import { findColorMatches } from "../color-match";
 import { TWEAKPANE_CSS } from "./theme";
 
 // Lucide's rotate-cw glyph — the per-row reset affordance (design brief:
 // a reload icon on the value's right, not a full-width button row).
 const RESET_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>`;
+
+// Lucide's pipette glyph — pick a pixel anywhere on the page, find the
+// token(s) currently painting that color.
+const PIPETTE_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m2 22 1-1h3l9-9"/><path d="M3 21v-3l9-9"/><path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z"/></svg>`;
+
+/** The EyeDropper API (Chromium-only as of 2026) — typed locally because
+ * TypeScript's dom lib does not ship it. */
+interface EyeDropperLike {
+	open(): Promise<{ sRGBHex: string }>;
+}
+
+/** Normalizes an arbitrary CSS color (hex, oklch, named…) to the computed
+ * `rgb(...)` string via a throwaway probe element — the DOM half of the
+ * matcher; color-match.ts stays document-free. Returns the raw value when
+ * the browser rejects it (the pure matcher then rejects it too). */
+function normalizeCssColor(doc: Document, value: string): string {
+	const probe = doc.createElement("div");
+	probe.style.color = value;
+	if (probe.style.color === "") return value;
+	doc.body.append(probe);
+	const computed = doc.defaultView?.getComputedStyle(probe).color ?? value;
+	probe.remove();
+	return computed;
+}
 
 /** A token ready for a control — "other"-kind tokens never reach the panel
  * (PLAN D5); main.ts's `panelTokens()` filters them out upstream. */
@@ -177,7 +202,12 @@ export function createTweaksPanel(
 
 	function addControl(folder: TweakpaneAny, token: PanelToken): void {
 		const params = { value: token.value };
-		const binding = folder.addBinding(params, "value", { label: token.name });
+		// Display without the "--" prefix (design brief) — every custom
+		// property carries it, so it is pure noise on-screen; the full name
+		// stays in the reset button's title/aria and in every callback.
+		const binding = folder.addBinding(params, "value", {
+			label: token.name.replace(/^--/, ""),
+		});
 		binding.on("change", (ev: { value: unknown }) => {
 			callbacks.onChange(token.name, String(ev.value));
 		});
@@ -202,6 +232,76 @@ export function createTweaksPanel(
 			reset.addEventListener("click", () => callbacks.onReset(token.name));
 			row.append(reset);
 		}
+	}
+
+	/** Scrolls to and flashes every row whose current color equals the picked
+	 * pixel; a transient summary-line message when nothing matches. */
+	function locateColor(
+		doc: Document,
+		picked: string,
+		summaryEl: HTMLElement,
+		summaryText: string,
+	): void {
+		const resolved = Array.from(controls.entries()).map(([name, control]) => ({
+			name,
+			resolvedValue: normalizeCssColor(doc, control.params.value),
+		}));
+		const matches = findColorMatches(picked, resolved);
+		if (matches.length === 0) {
+			summaryEl.textContent = `No token matches ${picked}`;
+			setTimeout(() => {
+				summaryEl.textContent = summaryText;
+			}, 2200);
+			return;
+		}
+		const reduceMotion =
+			doc.defaultView?.matchMedia("(prefers-reduced-motion: reduce)").matches ??
+			false;
+		matches.forEach((name, index) => {
+			const row: HTMLElement | null | undefined =
+				controls.get(name)?.binding.element;
+			if (!row) return;
+			if (index === 0) {
+				row.scrollIntoView({
+					block: "center",
+					behavior: reduceMotion ? "auto" : "smooth",
+				});
+			}
+			row.classList.add("lt-flash");
+			setTimeout(() => row.classList.remove("lt-flash"), 1800);
+		});
+	}
+
+	/** Chromium-only by feature detection: no EyeDropper constructor, no
+	 * button — the panel simply lacks the affordance elsewhere. */
+	function addPipetteButton(
+		doc: Document,
+		toolbar: HTMLElement,
+		summaryEl: HTMLElement,
+		summaryText: string,
+	): void {
+		const EyeDropperCtor = (
+			globalThis as { EyeDropper?: new () => EyeDropperLike }
+		).EyeDropper;
+		if (!EyeDropperCtor) return;
+		const button = doc.createElement("button");
+		button.className = "lt-btn lt-btn-icon";
+		button.title = "Pick a color on the page to find its token";
+		button.setAttribute(
+			"aria-label",
+			"Pick a color on the page to find its token",
+		);
+		button.innerHTML = PIPETTE_ICON_SVG;
+		button.addEventListener("click", async () => {
+			let picked: string;
+			try {
+				picked = (await new EyeDropperCtor().open()).sRGBHex;
+			} catch {
+				return; // the user dismissed the eyedropper
+			}
+			locateColor(doc, picked, summaryEl, summaryText);
+		});
+		toolbar.append(button);
 	}
 
 	function render(tokens: readonly PanelToken[], skippedSummary: string): void {
@@ -234,6 +334,7 @@ export function createTweaksPanel(
 		addAction("Save", true, () => callbacks.onSave());
 		addAction("Rescan", false, () => callbacks.onRescan());
 		addAction("Reset all", false, () => callbacks.onResetAll());
+		addPipetteButton(doc, toolbar, skipInfo, skippedSummary);
 		contentMount.append(toolbar);
 
 		const paneMount = doc.createElement("div");

@@ -274,6 +274,17 @@ defines `--color-*`), so build the allowlist from `design.md`'s **exact token
 names** — the definitive inventory Step 3 just wrote — not from prefixes.
 Exact entries match exactly (only an entry ending in `-` acts as a prefix),
 so suffixed framework variants like `--color-primary-content` stay out.
+
+**Order the `allow` array by visual prominence — the panel renders tokens in
+allow-entry order**, so the list you print decides what the user sees first.
+Judge prominence by reading the app's layout and styles (which tokens paint
+the largest or most important areas), never alphabetically. Rank roughly:
+
+1. Main surface colors — the page background, the primary containers/panels
+   the user stares at (e.g. an app shell, a capture box).
+2. Primary text colors (body text, dimmed/faint text).
+3. Brand accents — primary, secondary, tertiary.
+4. Every remaining color, then font tokens, then lengths.
 Print it as a pre-declared global the page sets *before* the panel script
 loads (for Option A a `<script>` block above the `src` tag; for Option B an
 assignment above the dynamic import):

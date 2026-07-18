@@ -212,6 +212,48 @@ describe("panelTokens with an allowlist (D13 fallback)", () => {
 		];
 		expect(panelTokens(tokens, ["--color-"])).toEqual([]);
 	});
+
+	it("orders tokens by allow-entry order, not scan order", () => {
+		// The ordering contract: the allowlist author ranks tokens by visual
+		// prominence and the panel honors that ranking (the /tweaks skill's
+		// setup mode writes the list most-prominent-first).
+		const tokens = [
+			baselineToken({ name: "--color-detail" }),
+			baselineToken({ name: "--color-bg-base" }),
+			baselineToken({ name: "--color-primary" }),
+		];
+		const allow = ["--color-bg-base", "--color-primary", "--color-detail"];
+		expect(panelTokens(tokens, allow).map((t) => t.name)).toEqual([
+			"--color-bg-base",
+			"--color-primary",
+			"--color-detail",
+		]);
+	});
+
+	it("keeps scan order among tokens matched by the same prefix entry", () => {
+		const tokens = [
+			baselineToken({ name: "--color-zeta" }),
+			baselineToken({ name: "--color-alpha" }),
+			baselineToken({ name: "--font-body", kind: "font-family" }),
+		];
+		const allow = ["--font-", "--color-"];
+		expect(panelTokens(tokens, allow).map((t) => t.name)).toEqual([
+			"--font-body",
+			"--color-zeta",
+			"--color-alpha",
+		]);
+	});
+
+	it("keeps scan order when no allowlist is configured", () => {
+		const tokens = [
+			baselineToken({ name: "--color-zeta" }),
+			baselineToken({ name: "--color-alpha" }),
+		];
+		expect(panelTokens(tokens).map((t) => t.name)).toEqual([
+			"--color-zeta",
+			"--color-alpha",
+		]);
+	});
 });
 
 describe("buildDumpResult with an allowlist (D13 fallback)", () => {

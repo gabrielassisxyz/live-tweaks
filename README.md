@@ -137,6 +137,12 @@ framework noise shares your naming. When set, the allowlist replaces the built-i
 and the panel's counter line reports how many tokens it filtered. An invalid
 config warns on the console and is ignored — it never blocks the panel.
 
+The panel renders tokens in allow-entry order, so put the important ones first
+— main surfaces, then text colors, then brand accents (`/tweaks` setup writes
+the list in that order for you). In Chromium, the toolbar's pipette button picks
+any pixel on the page and scrolls to (and highlights) the token(s) currently
+painting that color.
+
 ## Limitations
 
 Read these before you're surprised by them:

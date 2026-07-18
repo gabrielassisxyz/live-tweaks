@@ -108,20 +108,40 @@ function matchesAllowlist(name: string, allow: readonly string[]): boolean {
 	);
 }
 
+function allowlistIndex(name: string, allow: readonly string[]): number {
+	return allow.findIndex((entry) =>
+		entry.endsWith("-") ? name.startsWith(entry) : name === entry,
+	);
+}
+
 /** Tokens worth a control: editable (D3), classified (D5), and past the D13
  * noise filter — the allowlist when one is configured (it supersedes the
  * denylist: an explicit allow is better information than a built-in guess),
- * the `--tw-`/`--un-` denylist otherwise. */
+ * the `--tw-`/`--un-` denylist otherwise.
+ *
+ * With an allowlist the result is ordered by allow-entry order (stable
+ * within one entry): the list's author ranks tokens by visual prominence
+ * and the panel honors it — the /tweaks skill's setup mode writes the list
+ * most-prominent-first. Without one, scan order is kept. */
 export function panelTokens(
 	tokens: readonly BaselineToken[],
 	allow?: readonly string[],
 ): BaselineToken[] {
-	return tokens.filter(
+	const visible = tokens.filter(
 		(token) =>
 			token.editable &&
 			token.kind !== "other" &&
 			(allow ? matchesAllowlist(token.name, allow) : !isNoiseToken(token.name)),
 	);
+	if (!allow) return visible;
+	return visible
+		.map((token, scanIndex) => ({ token, scanIndex }))
+		.sort(
+			(a, b) =>
+				allowlistIndex(a.token.name, allow) -
+					allowlistIndex(b.token.name, allow) || a.scanIndex - b.scanIndex,
+		)
+		.map((entry) => entry.token);
 }
 
 export interface DumpToken {

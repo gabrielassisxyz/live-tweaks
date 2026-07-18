@@ -144,6 +144,21 @@ export const TWEAKPANE_CSS = /* css */ `
 		background: var(--lt-accent-strong);
 		border-color: var(--lt-accent-strong);
 	}
+	.lt-btn-icon {
+		width: 30px;
+		padding: 0;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		color: var(--lt-text-muted);
+	}
+	.lt-btn-icon:hover {
+		color: var(--lt-text);
+	}
+	.lt-btn-icon svg {
+		width: 15px;
+		height: 15px;
+	}
 
 	.lt-reset {
 		flex: 0 0 auto;
@@ -272,6 +287,16 @@ export const TWEAKPANE_CSS = /* css */ `
 		align-items: center;
 		min-height: 34px;
 		padding: 2px 16px;
+		transition: background-color 400ms ease-out;
+	}
+	/* Pipette hit: a brief accent wash marking the matched row(s). */
+	.tp-lblv.lt-flash {
+		background: rgba(74, 149, 133, 0.16);
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.tp-lblv {
+			transition: none;
+		}
 	}
 	.tp-lblv_l {
 		flex: 1 1 auto;
