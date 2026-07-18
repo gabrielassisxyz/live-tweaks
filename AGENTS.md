@@ -123,3 +123,14 @@
   never-referenced `"__liveTweaksModule"`; `init()`'s own assignment is the only thing
   that may own `window.LiveTweaks`. Lesson: any change to `vite.config.ts`'s `lib.name`
   needs a real-browser check of the actual built artifact, not just `npm test`.
+- **kernl (T15) injection + daisyUI reality:** the least-invasive Nuxt wiring is a dev-gated
+  client plugin (`plugins/live-tweaks.client.ts`, `if (import.meta.dev)`) that appends a
+  `<script src>` pointing at the IIFE placed in `web/public/` — this survives HMR and needs
+  no bundler config. Two runtime facts the panel surfaced, both **documented limitations, not
+  bugs**: (1) daisyUI floods `:root` with unprefixed noise (`--radius-*`, `--size-*`,
+  `--radialprogress`, its oklch palette) that the `--tw-`/`--un-` denylist can't catch, and
+  (2) daisyUI *shadows* kernl's `@theme` colors with `oklch()` at runtime, so the live value
+  of e.g. `--color-primary` is `oklch(...)` not source `#b4c5fe`; Tweakpane 4.0.5 renders
+  oklch as a text input (no swatch) and those tokens don't round-trip (computed `before` has
+  no source match → implement mode correctly stops-and-asks). Hex-authored kernl-only tokens
+  (`--color-bg-base`, `--font-headline`) get real controls and round-trip cleanly.
