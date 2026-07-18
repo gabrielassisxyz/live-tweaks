@@ -115,6 +115,26 @@ Either one mounts the panel automatically over the running page. Loading it in a
 production build is never intended — there's no build-time strip step, so the gate
 above is on you.
 
+### Filtering noisy token sets (allowlist)
+
+CSS frameworks can flood `:root` with hundreds of internal custom properties
+(daisyUI alone adds ~177), burying your real design tokens in the panel. Declare
+an allowlist **before** the script loads and the panel shows only matching tokens:
+
+```html
+<script>
+  window.LiveTweaksConfig = { allow: ["--color-", "--font-", "--spacing-component"] };
+</script>
+<script src="/node_modules/live-tweaks/dist/live-tweaks.js"></script>
+```
+
+For the bundler path, set `window.LiveTweaksConfig` in your entry file before the
+`import("live-tweaks")` line. Entries are name prefixes; an exact token name works
+as-is (a name is a prefix of itself — handy when framework noise shares your
+prefix). When set, the allowlist replaces the built-in `--tw-`/`--un-` denylist,
+and the panel's counter line reports how many tokens it filtered. An invalid
+config warns on the console and is ignored — it never blocks the panel.
+
 ## Limitations
 
 Read these before you're surprised by them:

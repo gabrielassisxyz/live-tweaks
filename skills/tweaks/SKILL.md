@@ -266,9 +266,33 @@ if (import.meta.env.DEV) {
 equivalent (e.g. webpack: `process.env.NODE_ENV !== "production"`) — gate on
 whichever your app already uses.
 
+**Include an allowlist when the app uses a CSS framework** (Tailwind, daisyUI,
+UnoCSS — anything that defines its own `:root` custom properties). Frameworks
+can flood `:root` with hundreds of internal tokens that bury the app's real
+ones, and framework noise may share the app's own prefixes (daisyUI also
+defines `--color-*`), so build the allowlist from `design.md`'s **exact token
+names** — the definitive inventory Step 3 just wrote — not from prefixes.
+Print it as a pre-declared global the page sets *before* the panel script
+loads (for Option A a `<script>` block above the `src` tag; for Option B an
+assignment above the dynamic import):
+
+```html
+<script>
+  window.LiveTweaksConfig = {
+    allow: ["--color-bg-base", "--font-headline" /* …every design.md token name */],
+  };
+</script>
+```
+
+If the scan found no framework noise (every root token is the app's own),
+skip the allowlist — the default filter already handles the common `--tw-`/
+`--un-` internals.
+
 Loading either one mounts the panel automatically over the running page; no
 further setup call is required. Reloading the page re-runs the scan client
-side, so newly-added tokens show up without re-running `/tweaks`.
+side, so newly-added tokens show up without re-running `/tweaks` — but a
+token added to source *after* setup must also be added to the printed
+allowlist, or the panel will filter it out.
 
 ## No-vars path
 
