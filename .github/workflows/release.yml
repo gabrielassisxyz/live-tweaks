@@ -20,4 +20,16 @@ jobs:
       # trusted publishing can only be configured on an EXISTING package, so the very
       # first publish is manual (`npm publish` locally, 2FA prompt); every release
       # after that lands through this workflow. Needs npm >= 11.5.1 (node 24 ships it).
-      - run: npm publish
+      - name: Check npm version
+        id: npm-version
+        run: |
+          name="$(node -p 'require("./package.json").name')"
+          version="$(node -p 'require("./package.json").version')"
+          if npm view "${name}@${version}" version >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "${name}@${version} already exists on npm; skipping publish."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.npm-version.outputs.exists != 'true'
+        run: npm publish
