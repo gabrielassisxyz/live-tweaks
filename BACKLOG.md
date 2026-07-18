@@ -127,7 +127,7 @@ don't spawn a fleet for it.
 
 ## P6 — validation + release
 
-- [ ] **T15** kernl end-to-end — SCOPE success checks 1–3. kernl:
+- [x] **T15** kernl end-to-end — SCOPE success checks 1–3. kernl:
       `~/repositories/kernl`, web app under `web/`, run per kernl's own AGENTS.md.
       **HUMAN CHECKPOINT** on the visual steps; every breakage fixed with a
       regression test; PLAN D13 usability gate evaluated here.
