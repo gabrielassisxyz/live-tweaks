@@ -36,7 +36,10 @@ import {
 	TweakSession,
 } from "./state";
 
-export const LIVE_TWEAKS_VERSION = "0.0.0";
+// Kept in lockstep with package.json's `version` by `bin/sync-version`, which the
+// npm `version` lifecycle script runs during `npm version <bump>`. `main.version.test.ts`
+// fails the build if the two ever drift.
+export const LIVE_TWEAKS_VERSION = "1.0.0";
 
 // D13: known framework-internal root-token prefixes — noise, not design
 // tokens, filtered from the panel regardless of how they classify.

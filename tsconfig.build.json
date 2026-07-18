@@ -1,0 +1,15 @@
+// Declaration-only build: emits dist/*.d.ts for the ESM entry that package.json's
+// `exports` promises. Separate from tsconfig.json because that one is `noEmit` and
+// deliberately includes tests + vite.config.ts, none of which belong in the tarball.
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"noEmit": false,
+		"declaration": true,
+		"emitDeclarationOnly": true,
+		"rootDir": "src",
+		"outDir": "dist"
+	},
+	"include": ["src"],
+	"exclude": ["src/**/*.test.ts"]
+}
