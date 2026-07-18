@@ -266,9 +266,46 @@ if (import.meta.env.DEV) {
 equivalent (e.g. webpack: `process.env.NODE_ENV !== "production"`) — gate on
 whichever your app already uses.
 
+**Include an allowlist when the app uses a CSS framework** (Tailwind, daisyUI,
+UnoCSS — anything that defines its own `:root` custom properties). Frameworks
+can flood `:root` with hundreds of internal tokens that bury the app's real
+ones, and framework noise may share the app's own naming (daisyUI also
+defines `--color-*`), so build the allowlist from `design.md`'s **exact token
+names** — the definitive inventory Step 3 just wrote — not from prefixes.
+Exact entries match exactly (only an entry ending in `-` acts as a prefix),
+so suffixed framework variants like `--color-primary-content` stay out.
+
+**Order the `allow` array by visual prominence — the panel renders tokens in
+allow-entry order**, so the list you print decides what the user sees first.
+Judge prominence by reading the app's layout and styles (which tokens paint
+the largest or most important areas), never alphabetically. Rank roughly:
+
+1. Main surface colors — the page background, the primary containers/panels
+   the user stares at (e.g. an app shell, a capture box).
+2. Primary text colors (body text, dimmed/faint text).
+3. Brand accents — primary, secondary, tertiary.
+4. Every remaining color, then font tokens, then lengths.
+Print it as a pre-declared global the page sets *before* the panel script
+loads (for Option A a `<script>` block above the `src` tag; for Option B an
+assignment above the dynamic import):
+
+```html
+<script>
+  window.LiveTweaksConfig = {
+    allow: ["--color-bg-base", "--font-headline" /* …every design.md token name */],
+  };
+</script>
+```
+
+If the scan found no framework noise (every root token is the app's own),
+skip the allowlist — the default filter already handles the common `--tw-`/
+`--un-` internals.
+
 Loading either one mounts the panel automatically over the running page; no
 further setup call is required. Reloading the page re-runs the scan client
-side, so newly-added tokens show up without re-running `/tweaks`.
+side, so newly-added tokens show up without re-running `/tweaks` — but a
+token added to source *after* setup must also be added to the printed
+allowlist, or the panel will filter it out.
 
 ## No-vars path
 

@@ -115,6 +115,36 @@ Either one mounts the panel automatically over the running page. Loading it in a
 production build is never intended — there's no build-time strip step, so the gate
 above is on you.
 
+### Filtering noisy token sets (allowlist)
+
+CSS frameworks can flood `:root` with hundreds of internal custom properties
+(daisyUI alone adds ~177), burying your real design tokens in the panel. Declare
+an allowlist **before** the script loads and the panel shows only matching tokens:
+
+```html
+<script>
+  window.LiveTweaksConfig = { allow: ["--color-", "--font-", "--spacing-component"] };
+</script>
+<script src="/node_modules/live-tweaks/dist/live-tweaks.js"></script>
+```
+
+For the bundler path, set `window.LiveTweaksConfig` in your entry file before the
+`import("live-tweaks")` line. An entry ending in `-` (like `--color-`) matches as
+a prefix; any other entry must match a token name exactly — so `--color-primary`
+does *not* pull in a framework's `--color-primary-content`, which matters when
+framework noise shares your naming. When set, the allowlist replaces the built-in
+`--tw-`/`--un-` denylist,
+and the panel's counter line reports how many tokens it filtered. An invalid
+config warns on the console and is ignored — it never blocks the panel.
+
+The panel renders tokens in allow-entry order, so put the important ones first
+— main surfaces, then text colors, then brand accents (`/tweaks` setup writes
+the list in that order for you). The toolbar's pipette button finds the token
+behind any color on the page: pixel-perfect via the EyeDropper API where the
+browser has it, and by clicking an element elsewhere (Firefox, Brave) — the
+element's background, or its text color when the background matches nothing.
+The panel scrolls to and highlights every token currently painting that color.
+
 ## Limitations
 
 Read these before you're surprised by them:

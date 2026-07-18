@@ -194,6 +194,18 @@ If T15 finds the panel unusable at that count even with folders+collapse, the
 parked fallback is a prefix-allowlist init option (`IDEAS.md`) — not built
 preemptively.
 
+**Gate outcome (2026-07-18): failed at kernl scale** — daisyUI floods `:root`
+with 177 unprefixed tokens (~220 controls, 6754px panel), which no denylist can
+enumerate. Both parked fallbacks are now built: `window.LiveTweaksConfig =
+{ allow: [...] }` (pre-declared before the script loads; prefixes or exact
+names; supersedes the denylist when present) and an internal-scroll cap on the
+host (`max-height: 70vh`). Config arrives via a pre-declared global because the
+IIFE auto-mounts — there is no init call to pass options to, and the same shape
+works for both injection paths. Match rule: a trailing-dash entry is a prefix,
+anything else is exact — prefix-matching exact names re-admitted daisyUI's
+suffixed variants on kernl (104 names → 227 matches), measured on the built
+artifact, invisible to unit tests.
+
 ### D14 — Build emits `iife` + `es`; UMD is forbidden
 The script-tag/bookmarklet artifact stays IIFE. Bundler users get a real ESM
 entry (`import('live-tweaks')` executing an IIFE as side-effect-only ESM works,

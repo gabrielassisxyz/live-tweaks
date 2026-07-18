@@ -101,6 +101,13 @@
   lockfile made every plain `npm install` produce a full-file whitespace diff. The
   regenerated tab version is a stable fixed point — repeat installs are churn-free.
   Don't "fix" its indentation; Biome ignores lockfiles (protected files).
+- Lockfile chapter two (2026-07-18): npm >= 11.7 (bundled with the CI runner's node 24.18)
+  demands hoisted lockfile entries for nested optional deps (`@emnapi/*`) that npm <= 11.6
+  neither writes nor needs — so a lockfile regenerated locally can pass `bin/ci` here and
+  fail `npm ci` on CI with "Missing ... from lock file". If that happens, regenerate with
+  `npx -y npm@latest install` and verify BOTH accept it (`npx npm@latest ci --dry-run` and
+  plain `npm ci --dry-run`). GitHub CI had been red since 2026-07-17 because of this while
+  local runs stayed green.
 - T2 jsdom computed-style probe (2026-07-17): jsdom's `getComputedStyle(documentElement)`
   **does** carry plain root custom-property values and **does** enumerate their names, but
   **does not** resolve `var()` chains (returns the literal `var(...)`) nor canonicalize
