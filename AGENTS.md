@@ -3,13 +3,9 @@
 > Read before every interaction. Living spec: short, imperative. On every gotcha or
 > decision, append one line here.
 
-> **What it is:** a live design-tweaks panel injected into your own running app — edit CSS
-> design tokens (colors, fonts) in a floating panel, watch the UI update as you type, then
-> round-trip the changes to source via the `/tweaks` skill. Full scope: `SCOPE.md`.
-> **Calibration:** Tier 2 · Phase: work. No external stakes yet (no users), real personal
-> stakes — a scoped product headed for open-source release.
-> **Review gate:** standard — one independent external review of the whole branch diff,
-> exactly once, pre-push. No per-commit or mid-development reviews.
+> **What it is:** a live design-tweaks panel injected into a running app — edit CSS design
+> tokens (colors, fonts, sizes) in a floating panel, watch the UI update as you type, then
+> round-trip the changes to source via the `/tweaks` skill.
 
 ## Stack & Commands
 
@@ -22,17 +18,13 @@
 - **Lint / format:** `npm run lint` / `npm run format`
 - **Full gate:** `bin/ci` — the exact thing CI runs; green locally means green in CI.
 
-## Scope (current)
+## Scope
 
-- **Current scope:** v1 as pinned in `SCOPE.md` — CSS-var extraction/setup, panel injection
-  (Shadow DOM), live editing of colors + fonts, save → JSON diff → `/tweaks implement`
-  round-trip. Don't expand beyond it without a present need; if a change drifts past it,
-  STOP and flag it.
-- **Nothing may depend on Vue.** kernl is the first target app, but only as a guinea pig —
-  the product is framework-agnostic by construction.
-- **Task backend:** markdown — scope authority is `SCOPE.md`; the v1 implementation
-  plan lives in `PLAN.md`; the drain queue is `BACKLOG.md`; parked ideas go to
-  `IDEAS.md`. No issue tracker / beads needed at this size.
+- Keep v1 focused on CSS custom-property extraction/setup, Shadow-DOM panel injection,
+  live editing, and Save → JSON diff → `/tweaks implement` source round-trip.
+- Keep the package framework-agnostic. Demo or fixture apps may use any stack, but
+  production code must not depend on one framework's runtime or conventions.
+- Do not expand beyond that surface without a present, user-facing need.
 
 ## Tests (TDD)
 
@@ -42,8 +34,8 @@
 - Mock external I/O with a named fake, not an inline stub. DOM-dependent code gets a jsdom
   environment (add the dep only when the first DOM test appears).
 - **Recorded exemption (2026-07-17):** `src/panel/` (the Tweakpane wrapper) has no unit
-  tests — it is verified on the demo page via the T7 spike gate and the human checkpoints
-  in `BACKLOG.md` (T9/T15/T16). Everything left of `panel/` stays strictly TDD.
+  tests. It is verified through the demo page and browser-level checks. Everything left
+  of `panel/` stays strictly TDD.
 - Before saying "done", run `bin/ci`; show the result.
 
 ## Small releases
@@ -116,18 +108,18 @@
   `npx -y npm@latest install` and verify BOTH accept it (`npx npm@latest ci --dry-run` and
   plain `npm ci --dry-run`). GitHub CI had been red since 2026-07-17 because of this while
   local runs stayed green.
-- T2 jsdom computed-style probe (2026-07-17): jsdom's `getComputedStyle(documentElement)`
+- jsdom computed-style probe (2026-07-17): jsdom's `getComputedStyle(documentElement)`
   **does** carry plain root custom-property values and **does** enumerate their names, but
   **does not** resolve `var()` chains (returns the literal `var(...)`) nor canonicalize
-  colors — so no `happy-dom` swap (PLAN D8), but the `before` var-substitution/match must
+  colors — so no `happy-dom` swap, but the `before` var-substitution/match must
   stay a pure function fed injected computed values (`src/resolve.ts` / `resolve.pure.test.ts`),
   never asserted through jsdom.
-- **T7 spike outcome (2026-07-17): PASS** — Tweakpane 4.0.5 works in an open Shadow DOM
+- **Tweakpane Shadow-DOM outcome (2026-07-17): PASS** — Tweakpane 4.0.5 works in an open Shadow DOM
   (Chromium via Playwright, evidence in `spike/`). Mount, color-picker popup open, popup
   click-drag (stays open, value updates, page var applied live), and keyboard focus/typing
-  all verified. So `panel.ts` adopts Tweakpane (not the native-inputs fallback). Two gotchas
-  for T8: (1) the style-clone workaround's target is `style[data-tp-style="plugin-default"]`,
-  NOT `"default"` as PLAN D1's example string reads — clone by attribute *presence*
+  all verified. So `panel.ts` adopts Tweakpane. Two gotchas:
+  (1) the style-clone workaround's target is `style[data-tp-style="plugin-default"]`,
+  NOT `"default"` — clone by attribute *presence*
   (`style[data-tp-style]`), which is version-robust. (2) The button that opens the picker is
   `.tp-colswv_b` (`.tp-colv_t` is the adjacent hex text field). No `composedPath` retargeting
   breakage observed in 4.0.5.
@@ -143,14 +135,10 @@
   never-referenced `"__liveTweaksModule"`; `init()`'s own assignment is the only thing
   that may own `window.LiveTweaks`. Lesson: any change to `vite.config.ts`'s `lib.name`
   needs a real-browser check of the actual built artifact, not just `npm test`.
-- **kernl (T15) injection + daisyUI reality:** the least-invasive Nuxt wiring is a dev-gated
-  client plugin (`plugins/live-tweaks.client.ts`, `if (import.meta.dev)`) that appends a
-  `<script src>` pointing at the IIFE placed in `web/public/` — this survives HMR and needs
-  no bundler config. Two runtime facts the panel surfaced, both **documented limitations, not
-  bugs**: (1) daisyUI floods `:root` with unprefixed noise (`--radius-*`, `--size-*`,
-  `--radialprogress`, its oklch palette) that the `--tw-`/`--un-` denylist can't catch, and
-  (2) daisyUI *shadows* kernl's `@theme` colors with `oklch()` at runtime, so the live value
-  of e.g. `--color-primary` is `oklch(...)` not source `#b4c5fe`; Tweakpane 4.0.5 renders
-  oklch as a text input (no swatch) and those tokens don't round-trip (computed `before` has
-  no source match → implement mode correctly stops-and-asks). Hex-authored kernl-only tokens
-  (`--color-bg-base`, `--font-headline`) get real controls and round-trip cleanly.
+- **Framework token noise:** daisyUI can flood `:root` with unprefixed noise
+  (`--radius-*`, `--size-*`, `--radialprogress`, oklch palettes) that the
+  `--tw-`/`--un-` denylist cannot catch. Use `window.LiveTweaksConfig.allow` for large
+  framework token sets.
+- **Runtime color formats:** some frameworks emit `oklch()` values even when source tokens
+  were authored as hex. Tweakpane 4.0.5 renders those values as text inputs, and implement
+  mode correctly stops and asks when the computed `before` value has no source match.

@@ -10,7 +10,7 @@
 		<div class="page">
 			<h1>live-tweaks demo</h1>
 			<p>
-				A framework-free fixture (SCOPE.md success check #4) whose visible UI
+				A framework-free fixture whose visible UI
 				is driven entirely by the CSS custom properties in
 				<code>tokens.css</code>. Edit a token in the panel and this page
 				updates live.
@@ -29,7 +29,7 @@
 
 		<script>
 			// No framework, no build step: a plain toggle so the [data-theme="dark"]
-			// block (PLAN.md D7) is reachable without relying on the OS color scheme.
+			// block is reachable without relying on the OS color scheme.
 			document.getElementById("theme-toggle").addEventListener("click", () => {
 				const root = document.documentElement;
 				if (root.dataset.theme === "dark") {
@@ -49,7 +49,7 @@
 					.replace(/^"|"$/g, "");
 		</script>
 
-		<!-- Dev-only injection snippet (SCOPE.md, README "Inject"), pointed at
+		<!-- Dev-only injection snippet (README "Inject"), pointed at
 		     the built IIFE so this fixture works after `npm run build` without a
 		     bundler. Serve the repo root (not just demo/) so this absolute path
 		     resolves, e.g. `npx serve .` then open /demo/index.html. -->

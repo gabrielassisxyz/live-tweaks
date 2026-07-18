@@ -1,13 +1,12 @@
-// T8 — the only module besides host.ts under src/panel/, and the only one
-// that imports "tweakpane" (PLAN §2: "all Tweakpane usage lives in
-// src/panel/ ... nothing outside panel/ may import tweakpane"). Everything
+// The only module besides host.ts under src/panel/, and the only one
+// that imports "tweakpane". Everything
 // it needs from the rest of the app arrives as plain data (`PanelToken[]`)
 // and plain callbacks (`TweaksPanelCallbacks`) — it never reaches into
 // state.ts/apply.ts directly, so swapping Tweakpane for the native-inputs
-// fallback (D1's hedge) would only ever touch this one file.
+// fallback would only ever touch this one file.
 //
-// Recorded TDD exemption (AGENTS.md): verified on the demo page (T7 spike
-// gate + T9/T15/T16 human checkpoints), not unit tested.
+// Recorded TDD exemption (AGENTS.md): verified on the demo page and through
+// browser-level checks, not unit tested.
 
 import { Pane } from "tweakpane";
 import { findColorMatches } from "../color-match";
@@ -202,12 +201,11 @@ function groupByKind(
 }
 
 // Tweakpane's public types re-export from "@tweakpane/core", a package this
-// repo does not depend on — only "tweakpane" itself is pinned (PLAN D1) — so
+// repo does not depend on — only "tweakpane" itself is pinned — so
 // that .d.ts chain is unresolvable here and, under tsconfig's skipLibCheck,
 // silently degrades to `any` rather than a compile error. Runtime
-// correctness is verified empirically (T7 spike + T9/T15/T16 human-checkpoint
-// evidence), the documented trade-off of the recorded panel/ TDD exemption
-// (AGENTS.md).
+// correctness is verified empirically, the documented trade-off of the recorded
+// panel/ TDD exemption (AGENTS.md).
 // biome-ignore lint/suspicious/noExplicitAny: see comment above.
 type TweakpaneAny = any;
 

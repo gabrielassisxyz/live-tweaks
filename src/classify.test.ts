@@ -1,9 +1,8 @@
-// Table-driven suite for classify.ts (PLAN D5). Pure logic, no DOM — mirrors the
+// Table-driven suite for classify.ts. Pure logic, no DOM — mirrors the
 // style of extract.pure.test.ts (fakes typed against the module's own seam, no
 // `any`, no engine involved).
 //
-// This file owns its own fixture table, disjoint from extract's (T1/T2) — per
-// the wave-2 note in BACKLOG.md, T2 and T3 keep fixtures per-module.
+// This file owns its own fixture table, disjoint from extract's fixtures.
 
 import { describe, expect, it } from "vitest";
 import {
