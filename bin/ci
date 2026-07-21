@@ -7,4 +7,7 @@ echo "==> typecheck";   npx tsc --noEmit
 echo "==> test";        npm test
 echo "==> build";       npm run build
 echo "==> audit";       npm audit --audit-level=high
+# anti-slop gate: em-dash in prose + the tool-name leak. Canonical: llm-workflow bin/slop-guard.
+echo "==> slop-guard"; bin/slop-guard
+
 echo "CI green."
